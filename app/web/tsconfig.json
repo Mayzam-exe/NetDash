@@ -12,7 +12,9 @@
     "noEmit": true,
     "isolatedModules": true,
     "useDefineForClassFields": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
   },
   "include": ["src", "vite.config.ts"]
 }

@@ -1,3 +1,4 @@
+import { syncSignals } from './signals';
 import type {
   Alert,
   Device,
@@ -195,6 +196,7 @@ export function applySnapshot(snap: Snapshot): void {
     if (d.signal != null) push(ds.sig, d.signal);
   }
   state.started = true;
+  syncSignals(state); // mirror into Preact signals before notifying listeners
   emit();
 }
 

@@ -1,6 +1,11 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // Preact's automatic JSX runtime (Phase 1: components are .tsx).
+  esbuild: {
+    jsx: 'automatic',
+    jsxImportSource: 'preact',
+  },
   server: {
     proxy: {
       '/api': {

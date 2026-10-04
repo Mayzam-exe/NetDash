@@ -1,4 +1,5 @@
 import './style.css';
+import './tokens.css';
 
 import {
   ackAlert,
@@ -37,12 +38,14 @@ import {
 import { applySnapshot, counts, findDevice, gatewayIp, hostDown, hostPeakDown, hostUp, latencyGateway, latencyWan, state, subscribe } from './state';
 import type { Prefs } from './state';
 import type { Settings } from './types';
-import { alertsView } from './views/alerts';
 import { dashboardView } from './views/dashboard';
 import { deviceView, mergeDevice, restoreScan, runDiag, saveDevice } from './views/device';
 import { devicesView } from './views/devices';
 import { atlasHud, mapView } from './views/map';
 import { discardSettings, saveSettings, settingsView } from './views/settings';
+import { h, render as renderPreact } from 'preact';
+import { AlertsApp } from './views/alerts.app';
+import { alertFilterSig, syncSignals, uiTick } from './signals';
 
 const TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -75,25 +78,44 @@ function route(): void {
   if (state.view === 'device' && state.tab === 'troubleshoot') void restoreScan(state.devId ?? -1);
 }
 
+/** True while a Preact view owns #view's subtree (see render()). */
+let preactMounted = false;
+
 function render(preserveScroll = false): void {
   const view = document.getElementById('view');
   if (!view) return;
+  syncSignals(state); // keep Preact signals aligned with legacy mutations
   const scroll0 = view.scrollTop;
   const tbl0 = view.querySelector('.tbl-scroll')?.scrollTop ?? 0;
   const prev = document.activeElement as HTMLElement | null;
   const focusKey =
     preserveScroll && prev && view.contains(prev) ? keyFor(prev) : null;
-  let html = '';
-  switch (state.view) {
-    case 'dashboard': html = dashboardView(); break;
-    case 'map': html = mapView(); break;
-    case 'devices': html = devicesView(); break;
-    case 'alerts': html = alertsView(); break;
-    case 'settings': html = settingsView(); break;
-    case 'device': html = deviceView(); break;
-    default: html = dashboardView();
+  // Preact-mounted views re-render themselves from signals; the rest are still
+  // built as HTML strings. Only one mode can own #view at a time.
+  if (state.view === 'alerts') {
+    if (preactMounted) {
+      uiTick.value = uiTick.value + 1; // force a fresh pass for this render()
+    } else {
+      view.innerHTML = '';
+      renderPreact(h(AlertsApp, {}), view);
+      preactMounted = true;
+    }
+  } else {
+    if (preactMounted) {
+      renderPreact(null, view); // unmount before taking over innerHTML
+      preactMounted = false;
+    }
+    let html = '';
+    switch (state.view) {
+      case 'dashboard': html = dashboardView(); break;
+      case 'map': html = mapView(); break;
+      case 'devices': html = devicesView(); break;
+      case 'settings': html = settingsView(); break;
+      case 'device': html = deviceView(); break;
+      default: html = dashboardView();
+    }
+    view.innerHTML = html;
   }
-  view.innerHTML = html;
   view.classList.toggle('map-mode', state.view === 'map');
   const title = document.getElementById('pageTitle');
   if (title) {
@@ -408,6 +430,7 @@ async function handleClick(e: MouseEvent): Promise<void> {
     }
     case 'alert-filter':
       state.alertFilter = el.dataset.filter || 'all';
+      alertFilterSig.value = state.alertFilter; // Preact view reads this
       render();
       break;
     case 'dismiss-alert':

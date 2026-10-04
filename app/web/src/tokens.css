@@ -1,0 +1,255 @@
+/* =========================================================================
+   NetDash — Phase 0 design tokens ("Brass & Ember": maximalist classic dark)
+   Imported AFTER style.css so these override the legacy palette in place.
+   No backdrop-filter / glass anywhere — depth is solid fill + border + shadow.
+   ========================================================================= */
+
+:root,
+:root[data-theme="dark"] {
+  /* surfaces — warm ink, layered depth */
+  --bg: #0d0b09;
+  --panel: #17130f;
+  --panel2: #201a15;      /* raised */
+  --panel-raised: #201a15;
+  --panel-sunken: #120f0c;
+  --hover: #241d16;
+  --border: #3a312a;
+  --border-gold: #7a6437;  /* ornament hairline */
+  --grid: rgba(237, 230, 214, 0.06);
+
+  /* text — bone, never pure white */
+  --text: #ede6d6;
+  --muted: #a3987f;
+
+  /* accents: identity vs. state (never mixed) */
+  --brass: #c9a227;        /* identity: nav, focus, eyebrows, numerals */
+  --accent: #c9a227;       /* legacy alias used across the old CSS */
+  --on-acc: #17130f;       /* dark ink on brass */
+  --crimson: #c8413b;      /* destructive */
+  --verdigris: #2e9e8f;    /* data / links / chart */
+
+  /* status only */
+  --green: #5fbf7a;
+  --amber: #e0a526;
+  --red: #e05b4b;
+  --blue: #6ba8d6;
+  --green-a: rgba(95, 191, 122, 0.18);
+  --blue-a: rgba(107, 168, 214, 0.16);
+
+  /* terminal */
+  --term-bg: #0a0806;
+  --term-fg: #7ee0a3;
+
+  /* elevation — solid, layered (not glass) */
+  --shadow: 0 2px 0 rgba(0, 0, 0, 0.5), 0 10px 24px rgba(0, 0, 0, 0.45);
+  --elev-1: 0 1px 0 rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --elev-2: 0 2px 0 rgba(0, 0, 0, 0.5), 0 10px 24px rgba(0, 0, 0, 0.45);
+  --elev-3: 0 3px 0 rgba(0, 0, 0, 0.5), 0 22px 48px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="light"] {
+  --bg: #f4efe6;          /* aged paper */
+  --panel: #fbf8f1;
+  --panel2: #ffffff;
+  --panel-raised: #ffffff;
+  --panel-sunken: #efe8db;
+  --hover: #f1eadd;
+  --border: #ded5c4;
+  --border-gold: #b69a5a;
+  --grid: rgba(28, 25, 23, 0.07);
+
+  --text: #1c1917;
+  --muted: #6e6455;
+
+  /* brass splits: --accent is used for small text/focus, so it must clear
+     4.5:1 on paper (#8A6D1B only reaches 4.3:1 → use #7A5F14 = 5.3:1).
+     --brass stays the brighter tone for rules, borders and large numerals. */
+  --brass: #8a6d1b;
+  --accent: #7a5f14;
+  --on-acc: #ffffff;
+  --crimson: #a32f2a;
+  --verdigris: #1f7a70;
+
+  --green: #2e7d4f;
+  --amber: #b87a12;
+  --red: #c0392b;
+  --blue: #1f6fa8;
+  --green-a: rgba(46, 125, 79, 0.14);
+  --blue-a: rgba(31, 111, 168, 0.12);
+
+  --term-bg: #14120e;
+  --term-fg: #7ee787;
+
+  --shadow: 0 2px 0 #fff, 0 10px 24px rgba(28, 25, 23, 0.14);
+  --elev-1: 0 1px 0 #fff, 0 2px 6px rgba(28, 25, 23, 0.1);
+  --elev-2: 0 2px 0 #fff, 0 10px 24px rgba(28, 25, 23, 0.14);
+  --elev-3: 0 3px 0 #fff, 0 22px 48px rgba(28, 25, 23, 0.18);
+}
+
+/* ---- typography: system trio (zero webfonts, CSP-safe) ---- */
+:root {
+  --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia,
+    "Times New Roman", serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Cantarell, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono",
+    Menlo, Consolas, monospace;
+
+  --text-xs: 12px;  --text-sm: 13.5px; --text-base: 15px;
+  --text-lg: 20px;  --text-xl: 26px;   --text-2xl: 34px; --text-3xl: 46px;
+  --tracking-eyebrow: 0.14em;
+
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 40px; --space-8: 56px;
+
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 20px;
+
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);   /* arriving */
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);    /* leaving */
+}
+
+/* =========================================================================
+   Maximalist layer — ornament with a budget (density tiers: L0 ornate,
+   tables/charts plain; ornament never sits behind data text).
+   ========================================================================= */
+
+/* Display serif carries the "classic" signal on titles and section heads. */
+.topbar h1,
+.card-title,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* Letterspaced small-caps eyebrow — the signature section header. */
+.kpi-label,
+.card .desc,
+.flabel {
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* Cards: raised solid fill + brass hairline top edge (double-rule look). */
+.card,
+.seg,
+.chipmini {
+  background: var(--panel);
+  box-shadow: inset 0 1px 0 var(--border-gold);
+}
+
+/* KPI numerals get the brass → bone gradient fill. */
+.kpi-big {
+  font-family: var(--font-display);
+  background: linear-gradient(180deg, var(--brass), var(--text));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Focus ring retargeted to brass (was --accent == accent-blue before). */
+:focus-visible {
+  outline-color: var(--brass);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}
+
+/* =========================================================================
+   Phase 1 component primitives
+   ========================================================================= */
+
+.eyebrow {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Status dot — shape + colour (never colour alone). */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.status-dot.online {
+  background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent);
+}
+.status-dot.warning {
+  background: var(--amber);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 22%, transparent);
+}
+.status-dot.offline {
+  background: transparent;
+  border: 2px solid var(--muted);
+}
+.status-dot.blocked {
+  border-radius: 2px;
+}
+
+/* TruthChip — "enforced vs reference-only vs unavailable", the signature. */
+.truth-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+}
+.truth-chip .tc-mark {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+}
+.truth-chip.enforced {
+  color: var(--verdigris);
+  border-color: color-mix(in srgb, var(--verdigris) 45%, var(--border));
+}
+.truth-chip.enforced .tc-mark {
+  background: var(--verdigris);
+}
+.truth-chip.reference {
+  color: var(--brass);
+  border-color: color-mix(in srgb, var(--brass) 45%, var(--border));
+}
+.truth-chip.reference .tc-mark {
+  background: var(--brass);
+}
+.truth-chip.unavailable {
+  color: var(--muted);
+}
+.truth-chip.unavailable .tc-mark {
+  background: var(--muted);
+}
+.truth-chip.pending {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 45%, var(--border));
+}
+.truth-chip.pending .tc-mark {
+  background: var(--amber);
+}
+.tc-reason {
+  font-weight: 500;
+  opacity: 0.9;
+  border-left: 1px solid var(--border);
+  padding-left: 6px;
+}
