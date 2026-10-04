@@ -3,6 +3,37 @@
 *Static analysis of the NetDash source tree, `go vet`, `go test`, `go test -race`,
 `tsc --noEmit`, and one targeted race-detector probe (removed after use).*
 
+> **Status — all findings addressed.** The fixes are grouped into 14 parts:
+>
+> 1. `publishNow` now takes the **write** lock (fixes the proven `e.status` race).
+> 2. `scheduleLoop` snapshots `settings.GatewayIP` under the lock.
+> 3. `tick()` collects offline transitions and fires alerts *after* unlocking
+>    (no more mid-iteration unlock).
+> 4. Settings page marks client-only controls **reference only** with an honest
+>    banner + save toast.
+> 5. Fabricated device facts (`LAN 3 · 1 Gbps`, `Cat6`, `Full`, `Living Room AP`,
+>    `18h left`) removed.
+> 6. README false claims corrected (per-client signal, QoS, reservations,
+>    peak-since-start).
+> 7. QoS/Reservation UI copy now states they are stored, not enforced.
+> 8. Optional bearer auth (`-auth-token` / `NETDASH_AUTH_TOKEN`) with an exposure
+>    warning; the SNMP community is no longer reachable without the token.
+> 9. `withCORS` → `withSecurityHeaders` (CSP, X-Frame-Options, Referrer-Policy).
+> 10. HTTP server read/write/idle timeouts (the SSE stream clears its own write
+>     deadline so it is not cut off).
+> 11. Argument-injection guards + `net.ParseIP` validation on settings and
+>     `applyNetsh`.
+> 12. `intelMemo` is pruned; the `alerts` table has 30-day retention.
+> 13. Git repo initialised with `.gitignore`; legacy HTML moved to `legacy/`;
+>     `HostPeakDown` labelled "since start"; dist-sync documented.
+> 14. Residual `ip`/`mac` interpolations escaped; tests added for `api`, `store`
+>     and `model`, plus an engine race-regression test (verified to trip `-race`
+>     before the fix and pass after).
+>
+> Corrections to this document itself: the untested-package list was wrong
+> (`mdns` and `netinfo` **do** have tests — 8 of 16 packages were untested, not
+> 9 of 17), and a `.git` directory **did** exist (empty, with no commits).
+
 ---
 
 ## 1. Architecture

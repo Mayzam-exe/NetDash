@@ -185,6 +185,26 @@ needs the ARP bridge and coexists with speed limits.
 `status.blocking` is `active (nftables)`, `active (arp poisoning)` or
 `unavailable: <reason>` — the UI shows those reasons verbatim.
 
+## Security
+
+NetDash binds `127.0.0.1:7420` by default, so it is reachable only from the
+machine it runs on. If you expose it to the LAN (`-addr 0.0.0.0:7420`), protect
+it with a token:
+
+```sh
+./bin/netdash -addr 0.0.0.0:7420 -auth-token "$(openssl rand -hex 24)"
+# or: export NETDASH_AUTH_TOKEN=...
+```
+
+With a token set, every `/api/*` request must carry it — as
+`Authorization: Bearer <token>`, or as `?token=<token>` (the SSE stream cannot
+send headers). The bundled UI reads the token from the browser, so after setting
+`localStorage.setItem('netdashToken', '<token>')` it attaches it automatically.
+Starting without a token on a non-loopback address prints a loud warning.
+
+Every response also carries `X-Content-Type-Options`, `X-Frame-Options: DENY`,
+`Referrer-Policy: no-referrer` and a restrictive `Content-Security-Policy`.
+
 ## Platform notes
 
 - **Blocking (gateway mode)** needs `nftables` and `CAP_NET_ADMIN`:
