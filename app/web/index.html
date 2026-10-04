@@ -26,15 +26,16 @@
         <button class="icon-btn" data-action="toggle-theme" id="themeBtn" title="Toggle theme"></button>
       </div>
     </header>
-    <main class="view" id="view"></main>
+    <main class="view" id="view" tabindex="-1"></main>
   </div>
 </div>
 <div id="toasts"></div>
 <div id="modalRoot"></div>
 <div id="cmdk" class="cmdk hidden">
   <div class="cmdk-box">
-    <input id="cmdkInput" placeholder="Jump to device — name, IP, or MAC…" autocomplete="off">
-    <div class="cmdk-list" id="cmdkList"></div>
+    <input id="cmdkInput" placeholder="Jump to device — name, IP, or MAC…" autocomplete="off"
+      role="combobox" aria-expanded="true" aria-controls="cmdkList" aria-autocomplete="list">
+    <div class="cmdk-list" id="cmdkList" role="listbox"></div>
   </div>
 </div>
 <input type="file" id="importFile" accept="application/json" class="hidden">

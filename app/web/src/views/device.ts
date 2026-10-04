@@ -83,17 +83,24 @@ export function deviceView(): string {
       : 'Connected <b>' + uptimeOf(d) + '</b>') +
     '</span></div></section>';
   const tabs =
-    '<div class="tabs">' +
+    '<div class="tabs" role="tablist">' +
     ['overview', 'performance', 'intel', 'settings', 'troubleshoot']
       .map(
         t =>
-          '<button class="tab' + (state.tab === t ? ' active' : '') +
-          '" data-action="tab" data-tab="' + t + '">' +
+          '<button class="tab' +
+          (state.tab === t ? ' active' : '') +
+          '" role="tab" aria-selected="' +
+          (state.tab === t) +
+          '" data-action="tab" data-tab="' +
+          t +
+          '">' +
           t.charAt(0).toUpperCase() + t.slice(1) + '</button>',
       )
       .join('') +
     '</div>';
-  return header + tabs + '<div class="tab-body">' + deviceTab(d) + '</div>';
+  return (
+    header + tabs + '<div class="tab-body" role="tabpanel">' + deviceTab(d) + '</div>'
+  );
 }
 
 function connText(d: Device): string {

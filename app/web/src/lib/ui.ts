@@ -446,6 +446,10 @@ export function renderCmdk(q: string): void {
           (d, i) =>
             '<button class="cmdk-item' +
             (i === state.cmdkSel ? ' sel' : '') +
+            '" role="option" aria-selected="' +
+            (i === state.cmdkSel) +
+            '" id="cmdk-opt-' +
+            i +
             '" data-cmdk="' + d.id + '">' +
             '<span class="dot ' + displayState(d) + '"></span>' +
             '<span><span class="ci-name">' + esc(d.name) + '</span><br>' +
@@ -454,6 +458,14 @@ export function renderCmdk(q: string): void {
         )
         .join('')
     : '<div class="empty">No devices found.</div>';
+  // a11y: combobox points at the active option
+  const inp = document.getElementById('cmdkInput');
+  if (inp) {
+    inp.setAttribute(
+      'aria-activedescendant',
+      state.cmdkResults.length ? 'cmdk-opt-' + state.cmdkSel : '',
+    );
+  }
 }
 
 export function cmdkGo(): void {
