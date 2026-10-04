@@ -1,0 +1,11 @@
+[Unit]
+Description=NetDash home network dashboard
+After=network-online.target
+
+[Service]
+ExecStart=/home/maxim/Projects/netdash/run/netdash -addr 127.0.0.1:7420 -data /home/maxim/Projects/netdash/data
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
