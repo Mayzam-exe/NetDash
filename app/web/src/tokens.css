@@ -253,3 +253,96 @@ h4 {
   border-left: 1px solid var(--border);
   padding-left: 6px;
 }
+
+/* =========================================================================
+   Phase 4 — responsive + accessibility
+   Breakpoints: 375 · 768 · 1024 · 1440 (existing tiers cover 1150/860).
+   ========================================================================= */
+
+/* Skip link — first tab stop, revealed on focus. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-weight: 650;
+  box-shadow: var(--elev-2);
+}
+.skip-link:focus {
+  left: 12px;
+  top: 12px;
+}
+
+/* Mobile tier (≤640): the 5-item rail becomes a bottom bar — within the
+   "bottom nav ≤ 5 items" rule; touch targets get the 44px minimum. */
+@media (max-width: 640px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .main {
+    height: auto;
+  }
+  .rail {
+    grid-row: 2;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    border-right: none;
+    border-top: 1px solid var(--border);
+  }
+  .rail .brand,
+  .rail .rail-foot {
+    display: none;
+  }
+  .nav-item {
+    position: relative;
+    flex-direction: column;
+    gap: 3px;
+    justify-content: center;
+    min-width: 56px;
+    min-height: 44px;
+    padding: 6px 4px;
+    font-size: 10.5px;
+  }
+  .nav-item span.lbl {
+    display: block; /* re-shown: it was hidden by the 860px icon-rail tier */
+  }
+  .nav-item.active {
+    box-shadow: inset 0 2px 0 var(--brass);
+  }
+  .nav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+  .nav-item .nbadge {
+    position: absolute;
+    top: 3px;
+    right: 9px;
+    margin-left: 0;
+  }
+
+  /* Touch targets */
+  .btn,
+  .icon-btn,
+  .chip {
+    min-height: 44px;
+  }
+  .btn {
+    padding: 11px 16px;
+  }
+
+  .kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .kpis-row {
+    grid-template-columns: 1fr;
+  }
+}

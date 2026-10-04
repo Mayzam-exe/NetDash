@@ -129,6 +129,9 @@ function render(preserveScroll = false): void {
     const active =
       href === '#/' + state.view || (state.view === 'device' && href === '#/devices');
     n.classList.toggle('active', active);
+    // a11y: expose the active nav item to assistive tech
+    if (active) n.setAttribute('aria-current', 'page');
+    else n.removeAttribute('aria-current');
   }
   updateBadge();
   refreshCharts();
@@ -182,6 +185,11 @@ function updateBadge(): void {
   if (!b) return;
   b.style.display = n ? '' : 'none';
   b.textContent = String(n);
+  // a11y: role="status" must announce context, not a bare number
+  b.setAttribute(
+    'aria-label',
+    n === 1 ? '1 alert needs attention' : n + ' alerts need attention',
+  );
 }
 
 function updateRailFoot(): void {
