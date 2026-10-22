@@ -15,6 +15,8 @@ export interface Device {
   state: DevState;
   blocked: boolean;
   reserved: boolean;
+  trusted: boolean; // exempt from lockdown mode
+  lockdown: boolean; // currently cut off *because* lockdown is on (computed)
   priority: Priority;
   schedule: string;
   speedDown: number; // kbit/s cap, 0 = unlimited
@@ -32,6 +34,7 @@ export interface DevicePatch {
   name?: string;
   priority?: Priority;
   reserved?: boolean;
+  trusted?: boolean;
   schedule?: string;
   kind?: string; // kind id, or '' = auto
   speedDown?: number; // kbit/s, 0 = unlimited
@@ -65,6 +68,7 @@ export interface Status {
   speed?: string; // 'active (arp bridge)' | 'unavailable: reason'
   path?: string; // 'gateway' | 'behind'
   metering?: string; // 'active' | 'unavailable: reason'
+  lockdown?: boolean; // lockdown mode is engaged
   totals: {
     devices: number;
     online: number;
@@ -163,4 +167,6 @@ export interface Settings {
   snmpHost: string;
   snmpCommunity: string;
   snmpWanIf: string;
+  // Cuts internet for every device except this machine and the Trusted ones.
+  lockdown: boolean;
 }

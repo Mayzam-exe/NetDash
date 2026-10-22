@@ -4,17 +4,24 @@ import "time"
 
 // Device is the JSON shape consumed by the web client.
 type Device struct {
-	ID        int64      `json:"id"`
-	IP        string     `json:"ip"`
-	MAC       string     `json:"mac"`
-	Name      string     `json:"name"`
-	Vendor    string     `json:"vendor"`
-	Kind      string     `json:"kind"` // phone|laptop|desktop|tablet|tv|camera|speaker|thermostat|printer|hub|console|router|"" (auto/unknown)
-	Conn      string     `json:"conn"` // eth | wifi5 | wifi2 | unknown
-	Signal    *int       `json:"signal"`
-	State     string     `json:"state"` // online | offline | warning
-	Blocked   bool       `json:"blocked"`
-	Reserved  bool       `json:"reserved"`
+	ID       int64  `json:"id"`
+	IP       string `json:"ip"`
+	MAC      string `json:"mac"`
+	Name     string `json:"name"`
+	Vendor   string `json:"vendor"`
+	Kind     string `json:"kind"` // phone|laptop|desktop|tablet|tv|camera|speaker|thermostat|printer|hub|console|router|"" (auto/unknown)
+	Conn     string `json:"conn"` // eth | wifi5 | wifi2 | unknown
+	Signal   *int   `json:"signal"`
+	State    string `json:"state"` // online | offline | warning
+	Blocked  bool   `json:"blocked"`
+	Reserved bool   `json:"reserved"`
+	// Trusted devices stay online when lockdown mode is on. This machine is
+	// always exempt; the flag only matters for everything else.
+	Trusted bool `json:"trusted"`
+	// Lockdown reports that the device is currently cut off *because* lockdown
+	// mode is on, not because someone blocked it individually. Computed at
+	// snapshot time, never persisted.
+	Lockdown  bool       `json:"lockdown"`
 	Priority  string     `json:"priority"`
 	Schedule  string     `json:"schedule"`
 	SpeedDown int        `json:"speedDown"` // kbit/s cap toward the device, 0 = unlimited
@@ -77,6 +84,7 @@ type Status struct {
 	Speed          string  `json:"speed"`         // active (arp bridge) | unavailable: reason
 	Path           string  `json:"path"`          // gateway | behind
 	Metering       string  `json:"metering"`      // active | unavailable: reason
+	Lockdown       bool    `json:"lockdown"`      // lockdown mode is engaged
 	Totals         Totals  `json:"totals"`
 }
 
@@ -96,6 +104,10 @@ type Settings struct {
 	SnmpHost      string `json:"snmpHost"`
 	SnmpCommunity string `json:"snmpCommunity"`
 	SnmpWanIf     string `json:"snmpWanIf"`
+	// Lockdown cuts internet for every device except this machine and the
+	// ones marked Trusted. It is enforced by whatever mechanism already
+	// blocks devices (nftables on the gateway path, ARP poisoning otherwise).
+	Lockdown bool `json:"lockdown"`
 }
 
 func DefaultSettings() Settings {

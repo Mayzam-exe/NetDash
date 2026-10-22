@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -29,6 +31,42 @@ import (
 
 // Version is reported by /api/status and `netdash -version`.
 const Version = "0.1.0"
+
+// exeHint is this binary's real path, used to fill in capability advice
+// ("sudo setcap … <netdash binary>"). Resolved once; symlinks are followed so
+// the answer matches what setcap should be pointed at. Tests resolve to the
+// test binary, which is harmless — the string only appears in status text.
+var exeHint = func() string {
+	p, err := os.Executable()
+	if err != nil {
+		return "<netdash binary>"
+	}
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		return real
+	}
+	return p
+}()
+
+// rawPacketAdvice says what will actually put CAP_NET_RAW in this process's
+// hands: bin is the binary to change, nosuidMount the mount that would grant it
+// ("" when nothing there blocks it).
+//
+// The bare hint — "run setcap" — was handed out in a form that cannot work, and
+// led straight into a dead end. Two properties of file capabilities cause it:
+// the kernel ignores them entirely on a nosuid mount, where setcap still exits
+// 0 and getcap still reports them; and they are read only when a process
+// starts, so a grant made while NetDash runs reaches nothing until a restart.
+// Both send someone into a loop of running a command that changes nothing, so
+// this names the precondition instead of repeating the command.
+func rawPacketAdvice(bin, nosuidMount string) string {
+	if nosuidMount != "" {
+		return "raw packet access denied — " + bin + " sits on " + nosuidMount +
+			", mounted nosuid: the kernel ignores file capabilities there, so setcap on it grants nothing. " +
+			"Install the binary on a mount without nosuid (grantcaps.sh puts it in /usr/local/lib/netdash), then restart the service"
+	}
+	return "raw packet access denied — need CAP_NET_RAW: run `sudo setcap cap_net_raw,cap_net_admin+ep " + bin +
+		"`, then restart the service (a process only receives file capabilities when it starts)"
+}
 
 const (
 	offlineAfter     = 120 * time.Second
@@ -324,13 +362,21 @@ func (e *Engine) tick() {
 	now := time.Now()
 	var wentOffline []model.Device
 	for id, d := range e.devices {
-		if d.State == "online" && d.LastSeen != nil && now.Sub(*d.LastSeen) > offlineAfter {
-			d.State = "offline"
-			e.devices[id] = d
-			if !e.offlineTag[d.IP] {
-				e.offlineTag[d.IP] = true
-				wentOffline = append(wentOffline, d)
-			}
+		// State is not a column, so a row reloaded from the store this session
+		// starts as "" and stays that way while nothing touches it: it renders
+		// an empty status dot, the offline filter never matches it, and the
+		// state sort has no rank for it (comparisons come back NaN). Resolve
+		// "" on the same rule as any other age — but unknown → offline is not
+		// a transition the user watched happen, so it raises no alert.
+		if d.LastSeen == nil || d.State == "offline" || now.Sub(*d.LastSeen) <= offlineAfter {
+			continue
+		}
+		wasOnline := d.State == "online"
+		d.State = "offline"
+		e.devices[id] = d
+		if wasOnline && !e.offlineTag[d.IP] {
+			e.offlineTag[d.IP] = true
+			wentOffline = append(wentOffline, d)
 		}
 	}
 	if down > e.status.HostPeakDown {
@@ -403,7 +449,10 @@ func (e *Engine) ensureSelf() {
 	ip, mac, ifName := netinfo.LocalSelf()
 
 	// The self flag is runtime-only: clear it everywhere first so a changed
-	// local IP cannot leave a stale "this machine" marker behind.
+	// local IP cannot leave a stale "this machine" marker behind. The name
+	// that row was given is persisted, so it is handed back separately, once
+	// this pass knows which row really is this machine — see
+	// revertStaleSelfNames.
 	e.mu.Lock()
 	for id, d := range e.devices {
 		if d.Self && d.IP != ip {
@@ -454,9 +503,41 @@ func (e *Engine) ensureSelf() {
 		}
 	}
 	e.devices[d.ID] = d
+	// With the flag landed on this row, any other row still carrying a self
+	// name is a leftover from an address we no longer have.
+	e.revertStaleSelfNames()
 	after := d.Name + "\x00" + d.Vendor + "\x00" + d.Kind + "\x00" + d.Conn + "\x00" + d.MAC
 	if isNew || before != after {
 		_ = e.st.SaveDevice(d) // Self itself is runtime-only and not persisted.
+	}
+}
+
+// revertStaleSelfNames puts the generic placeholder back on rows whose name
+// came from self-registration. That path is the only writer of a self name, so
+// a row still holding one while a different row carries the self flag is a
+// record from an address the machine no longer has — which is exactly what a
+// restart leaves behind, because the runtime flag does not survive one while
+// the name column does. Without this, roaming between networks (home Wi-Fi,
+// phone hotspot) piles up rows that read as "This machine" but are not.
+//
+// A name the user typed is never produced by that path, so it is preserved.
+// Renaming back to the placeholder also returns the row to the normal naming
+// pipeline: the next DHCP lease or mDNS answer takes over, as it would for any
+// other unknown device.
+//
+// The rename is written to the store here because, unlike the self flag, it
+// lives in a persisted column. Callers hold e.mu.
+func (e *Engine) revertStaleSelfNames() {
+	selfName := netinfo.SelfName()
+	for id, d := range e.devices {
+		if d.Self || (d.Name != selfName && d.Name != netinfo.FallbackSelfName) {
+			continue
+		}
+		d.Name = "Device " + d.IP
+		e.devices[id] = d
+		if err := e.st.SaveDevice(d); err != nil {
+			log.Printf("revert stale self name %s: %v", d.IP, err)
+		}
 	}
 }
 
@@ -881,10 +962,11 @@ func (e *Engine) recomputeStatus() {
 
 func (e *Engine) recomputeStatusLocked() {
 	var t model.Totals
+	lockdown := e.settings.Lockdown
 	for _, d := range e.devices {
 		t.Devices++
 		switch {
-		case d.Blocked:
+		case d.Blocked || (lockdown && !lockdownExempt(d, e.settings.GatewayIP)):
 			t.Blocked++
 		case d.State == "warning":
 			t.Warning++
@@ -895,6 +977,7 @@ func (e *Engine) recomputeStatusLocked() {
 		}
 	}
 	e.status.Totals = t
+	e.status.Lockdown = lockdown
 	e.status.MetricsSource = e.metricsSource
 	e.status.Version = Version
 	e.status.Path = e.path
@@ -940,7 +1023,14 @@ func (e *Engine) recomputeStatusLocked() {
 
 func (e *Engine) snapshotLocked() model.Snapshot {
 	devs := make([]model.Device, 0, len(e.devices))
+	lockdown := e.settings.Lockdown
+	gwIP := e.settings.GatewayIP
 	for _, d := range e.devices {
+		// Report *why* a device is offline so the UI can distinguish "the
+		// admin blocked this one" from "lockdown mode caught it".
+		if lockdown && !d.Blocked && !lockdownExempt(d, gwIP) {
+			d.Lockdown = true
+		}
 		devs = append(devs, d)
 	}
 	sort.Slice(devs, func(i, j int) bool { return devs[i].Name < devs[j].Name })
@@ -996,6 +1086,7 @@ type DevicePatch struct {
 	SpeedDown *int    `json:"speedDown,omitempty"` // kbit/s, 0 = unlimited
 	SpeedUp   *int    `json:"speedUp,omitempty"`   // kbit/s, 0 = unlimited
 	Watched   *bool   `json:"watched,omitempty"`   // intercept for intel
+	Trusted   *bool   `json:"trusted,omitempty"`   // exempt from lockdown mode
 }
 
 // reSchedule accepts "HH:MM-HH:MM" with -, – or — as separator.
@@ -1070,12 +1161,18 @@ func (e *Engine) UpdateDevice(id int64, p DevicePatch) (model.Device, error) {
 	if p.Watched != nil {
 		cand.Watched = *p.Watched
 	}
+	if p.Trusted != nil {
+		cand.Trusted = *p.Trusted
+	}
 	blockChanged := p.Blocked != nil && cand.Blocked != d.Blocked
 	speedChanged := (p.SpeedDown != nil && *p.SpeedDown != d.SpeedDown) ||
 		(p.SpeedUp != nil && *p.SpeedUp != d.SpeedUp)
 	speedSet := cand.SpeedDown > 0 || cand.SpeedUp > 0
 	speedWas := d.SpeedDown > 0 || d.SpeedUp > 0
 	watchChanged := p.Watched != nil && cand.Watched != d.Watched
+	// Trust only matters while lockdown is engaged, but the block set has to
+	// be rebuilt whenever it flips so the change takes effect immediately.
+	trustChanged := p.Trusted != nil && cand.Trusted != d.Trusted
 
 	if speedChanged && speedSet {
 		if cand.Self {
@@ -1088,7 +1185,7 @@ func (e *Engine) UpdateDevice(id int64, p DevicePatch) (model.Device, error) {
 		}
 	}
 
-	if blockChanged || speedChanged || watchChanged {
+	if blockChanged || speedChanged || watchChanged || trustChanged {
 		if blockChanged && cand.Blocked && d.IP == e.settings.GatewayIP {
 			e.mu.Unlock()
 			return model.Device{}, fmt.Errorf("%w: cannot block the gateway", ErrInvalid)
@@ -1166,6 +1263,13 @@ func (e *Engine) UpdateDevice(id int64, p DevicePatch) (model.Device, error) {
 			e.AddAlert("info", "Speed limit removed for "+cand.Name, &cand.ID)
 		}
 	}
+	if trustChanged {
+		if cand.Trusted {
+			e.AddAlert("warning", cand.Name+" exempted from lockdown mode", &cand.ID)
+		} else {
+			e.AddAlert("info", cand.Name+" will be cut off when lockdown mode is on", &cand.ID)
+		}
+	}
 	e.publishNow()
 	return cand, nil
 }
@@ -1173,6 +1277,15 @@ func (e *Engine) UpdateDevice(id int64, p DevicePatch) (model.Device, error) {
 func (e *Engine) PutSettings(s model.Settings) error {
 	e.mu.Lock()
 	gwChanged := s.GatewayIP != e.settings.GatewayIP
+	lockdownChanged := s.Lockdown != e.settings.Lockdown
+	if lockdownChanged && s.Lockdown {
+		// A lockdown the host cannot enforce is worse than an error: the UI
+		// would show the whole network as protected while nothing is cut off.
+		if reason := e.blockReasonLocked(); reason != "" {
+			e.mu.Unlock()
+			return fmt.Errorf("%w: lockdown mode unavailable: %s", ErrInvalid, reason)
+		}
+	}
 	e.settings = s
 	e.mu.Unlock()
 	if err := e.st.PutSettings(s); err != nil {
@@ -1184,8 +1297,37 @@ func (e *Engine) PutSettings(s model.Settings) error {
 		// bridge (repairing its poisons) and reopen against the new one.
 		e.rebindBridge()
 	}
+	if lockdownChanged {
+		// Rebuild the block set immediately — waiting for the next poll would
+		// leave newly-engaged lockdown half-applied for seconds.
+		e.applyRules(false)
+		cut, exempt := e.lockdownVictims()
+		if s.Lockdown {
+			e.AddAlert("critical", fmt.Sprintf(
+				"Lockdown engaged — %d device(s) cut off, %d exempt (this machine, router and trusted devices)",
+				cut, exempt), nil)
+		} else {
+			e.AddAlert("info", "Lockdown released — internet restored wherever no other block applies", nil)
+		}
+	}
 	e.publishNow()
 	return nil
+}
+
+// lockdownVictims counts how many devices lockdown mode currently cuts off and
+// how many it leaves alone, so the toggle can report real numbers.
+func (e *Engine) lockdownVictims() (cut, exempt int) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	gw := e.settings.GatewayIP
+	for _, d := range e.devices {
+		if lockdownExempt(d, gw) {
+			exempt++
+		} else {
+			cut++
+		}
+	}
+	return cut, exempt
 }
 
 func (e *Engine) Settings() model.Settings {
@@ -1270,9 +1412,25 @@ func scheduleAllows(schedule string, now time.Time) bool {
 	return cur >= from || cur < to // wraps midnight
 }
 
-// effectiveBlocked is the enforced state: manual block OR outside active hours.
-func effectiveBlocked(d model.Device, now time.Time) bool {
-	return d.Blocked || !scheduleAllows(d.Schedule, now)
+// effectiveBlocked is the enforced state: manual block, lockdown mode for
+// anything not explicitly exempt, or outside active hours. Lockdown is applied
+// here rather than by mutating every device, so disengaging it restores
+// exactly the previous state (per-device blocks and schedules still stand).
+func effectiveBlocked(d model.Device, now time.Time, lockdown bool) bool {
+	if d.Blocked {
+		return true
+	}
+	if lockdown && !d.Trusted {
+		return true
+	}
+	return !scheduleAllows(d.Schedule, now)
+}
+
+// lockdownExempt reports whether lockdown mode leaves the device alone: the
+// host running NetDash, the router, and anything the user marked Trusted. This
+// mirrors the exemptions blockSetLocked applies when it builds the block set.
+func lockdownExempt(d model.Device, gwIP string) bool {
+	return d.Self || d.IP == gwIP || d.Trusted
 }
 
 // refreshPath classifies this host as being on the gateway path (traffic of
@@ -1311,7 +1469,14 @@ func (e *Engine) refreshBlockModeLocked() {
 	b, err := arpblock.Open(e.settings.GatewayIP)
 	if err != nil {
 		if ce, ok := err.(*arpblock.ErrNotCapable); ok {
-			e.arpReason = ce.Reason
+			// The placeholder marks the raw-packet reason — the one whose fix
+			// can silently not work, so it gets advice that fits this machine
+			// instead of a bare "run setcap".
+			if strings.Contains(ce.Reason, "<netdash binary>") {
+				e.arpReason = rawPacketAdvice(exeHint, netinfo.FileCapsBlocked(exeHint))
+			} else {
+				e.arpReason = ce.Reason
+			}
 		} else {
 			e.arpReason = err.Error()
 		}
@@ -1364,6 +1529,7 @@ func (e *Engine) blockSetLocked(pendingID int64, pending *model.Device) (map[str
 	limited := map[string]arpblock.Limit{}
 	var meter []firewall.Entry
 	now := time.Now()
+	lockdown := e.settings.Lockdown
 	for _, x := range e.devices {
 		if x.Self || x.IP == e.settings.GatewayIP {
 			continue // never meter, block or throttle the host or the router itself
@@ -1375,7 +1541,7 @@ func (e *Engine) blockSetLocked(pendingID int64, pending *model.Device) (map[str
 		if e.blockMode == "nft" {
 			meter = append(meter, firewall.Entry{IP: x.IP, MAC: x.MAC})
 		}
-		blocked := effectiveBlocked(c, now)
+		blocked := effectiveBlocked(c, now, lockdown)
 		if blocked {
 			desired[c.IP] = c.MAC
 			continue
@@ -1636,15 +1802,18 @@ func (e *Engine) scheduleLoop(ctx context.Context) {
 		for _, d := range e.devices {
 			devs = append(devs, d)
 		}
-		gwIP := e.settings.GatewayIP // snapshot under the lock: PutSettings writes
-		enforced := e.enforcedIPsLocked() // e.settings under e.mu.Lock (was a
-		desired, limited, meter := e.blockSetLocked(0, nil) // post-unlock read)
+		// Snapshot everything the loop needs under the lock: PutSettings
+		// writes e.settings under e.mu.Lock (was a post-unlock read).
+		gwIP := e.settings.GatewayIP
+		lockdown := e.settings.Lockdown
+		enforced := e.enforcedIPsLocked()
+		desired, limited, meter := e.blockSetLocked(0, nil)
 		e.mu.RUnlock()
 
 		want := map[string]bool{}
 		first := prevWant == nil
 		for _, d := range devs {
-			w := effectiveBlocked(d, now)
+			w := effectiveBlocked(d, now, lockdown)
 			if d.IP != gwIP && !d.Self {
 				want[d.IP] = w
 			}

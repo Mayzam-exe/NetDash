@@ -17,7 +17,10 @@ else
   sleep 1
 fi
 
-cp app/bin/netdash run/netdash        # writing strips file caps — re-grant below
+# Dev copy for running the binary by hand. It cannot hold capabilities — the
+# project volume is mounted nosuid, where the kernel ignores them — so the
+# grant goes to the /usr/local copy that grantcaps.sh installs below.
+cp app/bin/netdash run/netdash
 
 if ! sudo -n ./grantcaps.sh; then
   echo "Password needed to grant capabilities:"
@@ -28,7 +31,10 @@ mkdir -p data /tmp/opencode
 if [ "$have_svc" = 1 ]; then
   systemctl --user start netdash.service
 else
-  setsid -f ./run/netdash -addr 127.0.0.1:7420 -data "$PWD/data" \
+  # No service: prefer the granted copy, which is the only one that can block.
+  RUNBIN=/usr/local/lib/netdash/netdash
+  [ -x "$RUNBIN" ] || RUNBIN="$PWD/run/netdash"
+  setsid -f "$RUNBIN" -addr 127.0.0.1:7420 -data "$PWD/data" \
     > /tmp/opencode/netdash.log 2>&1 < /dev/null
 fi
 sleep 6

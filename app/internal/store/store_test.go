@@ -1,6 +1,8 @@
 package store
 
 import (
+	"database/sql"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -86,5 +88,81 @@ func TestSettingsRoundTrip(t *testing.T) {
 	got, err := s.GetSettings()
 	if err != nil || got.SSID24 != "TestNet" {
 		t.Fatalf("GetSettings=%+v err=%v", got, err)
+	}
+
+	// Lockdown rides along in the same JSON blob.
+	st.Lockdown = true
+	if err := s.PutSettings(st); err != nil {
+		t.Fatalf("PutSettings(lockdown): %v", err)
+	}
+	got, err = s.GetSettings()
+	if err != nil || !got.Lockdown {
+		t.Fatalf("lockdown not persisted: %+v err=%v", got, err)
+	}
+}
+
+// TestTrustedColumnMigratesFromOldSchema: a database written before lockdown
+// existed gets the column added, and existing devices come back untrusted
+// rather than silently exempt.
+func TestTrustedColumnMigratesFromOldSchema(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "netdash.db")
+
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	const oldSchema = `CREATE TABLE devices(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ip TEXT NOT NULL UNIQUE,
+  mac TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '',
+  vendor TEXT NOT NULL DEFAULT '',
+  conn TEXT NOT NULL DEFAULT 'unknown',
+  blocked INTEGER NOT NULL DEFAULT 0,
+  reserved INTEGER NOT NULL DEFAULT 0,
+  priority TEXT NOT NULL DEFAULT 'normal',
+  schedule TEXT NOT NULL DEFAULT '',
+  speed_down INTEGER NOT NULL DEFAULT 0,
+  speed_up INTEGER NOT NULL DEFAULT 0,
+  watched INTEGER NOT NULL DEFAULT 0,
+  kind TEXT NOT NULL DEFAULT '',
+  first_seen INTEGER NOT NULL DEFAULT 0,
+  last_seen INTEGER NOT NULL DEFAULT 0
+);`
+	if _, err := db.Exec(oldSchema); err != nil {
+		t.Fatalf("create old schema: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO devices(ip, mac, name) VALUES('192.168.1.7','aa:bb:cc:dd:ee:07','old phone')`); err != nil {
+		t.Fatalf("seed old device: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close old db: %v", err)
+	}
+
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatalf("Open on pre-lockdown schema: %v", err)
+	}
+	defer s.Close()
+
+	devs, err := s.ListDevices()
+	if err != nil {
+		t.Fatalf("ListDevices after migration: %v", err)
+	}
+	if len(devs) != 1 || devs[0].IP != "192.168.1.7" {
+		t.Fatalf("devices after migration: %+v", devs)
+	}
+	if devs[0].Trusted {
+		t.Error("pre-existing device migrated as trusted")
+	}
+
+	devs[0].Trusted = true
+	if err := s.SaveDevice(devs[0]); err != nil {
+		t.Fatalf("SaveDevice after migration: %v", err)
+	}
+	again, err := s.ListDevices()
+	if err != nil || !again[0].Trusted {
+		t.Fatalf("trusted did not round-trip after migration: %+v err=%v", again, err)
 	}
 }

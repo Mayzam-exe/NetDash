@@ -119,6 +119,7 @@ export const state: AppState = {
   settings: {
     ssid24: '', ssid5: '', gatewayIp: '', wanIp: '',
     snmpEnabled: false, snmpHost: '', snmpCommunity: 'public', snmpWanIf: '',
+    lockdown: false,
   },
   prefs: defaultPrefs(),
   latency: -1,
@@ -200,7 +201,8 @@ export function applySnapshot(snap: Snapshot): void {
   emit();
 }
 
-export const displayState = (d: Device) => (d.blocked ? 'blocked' : d.state);
+export const displayState = (d: Device) =>
+  d.blocked || d.lockdown ? 'blocked' : d.state;
 
 export function counts() {
   const c = { online: 0, warning: 0, offline: 0, blocked: 0, connected: 0, total: 0 };

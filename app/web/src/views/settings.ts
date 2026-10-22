@@ -1,6 +1,69 @@
 import { getSettings, putSettings } from '../api';
 import { defaultPrefs, state } from '../state';
 import { checked, esc, toast, val } from '../lib/ui';
+import type { Settings, Status } from '../types';
+
+/**
+ * Lockdown — the panic switch. When engaged, every device loses internet
+ * except this machine, the router, and anything the user marked Trusted.
+ *
+ * It applies the moment it is toggled (no "Save changes" round trip): a panic
+ * button that waits for a save is not a panic button. The backend refuses the
+ * switch when it has no enforcement path, and this section reports that
+ * instead of pretending the network is protected.
+ */
+function lockdownSection(s: Settings, status: Status | null): string {
+  const row = (label: string, control: string, hint?: string) =>
+    '<div class="form-row"><div class="flabel">' + label + '</div><div>' + control +
+    '</div><div class="fhint">' + (hint || '') + '</div></div>';
+
+  const canEnforce = (status?.blocking || '').startsWith('active');
+  const cut = state.devices.filter(
+    d => !d.self && d.ip !== s.gatewayIp && !d.trusted,
+  ).length;
+  const total = state.devices.length;
+  // status.blocking already reads "unavailable: <reason>", so strip that
+  // before prefixing again — otherwise the hint renders "Unavailable:
+  // unavailable: …". The reason is also escaped here because it can contain
+  // "<netdash binary>", which raw HTML would swallow as an unknown tag (it
+  // vanished from the UI entirely before this line existed).
+  const reason = (status?.blocking || 'no enforcement path').replace(
+    /^unavailable:\s*/i,
+    '',
+  );
+  const hint = canEnforce
+    ? 'Applies immediately — no need to press Save. ' +
+      (total === 0
+        ? 'No devices discovered yet.'
+        : cut + ' of ' + total + ' device(s) will lose internet, ' + (total - cut) + ' stay online.')
+    : 'Unavailable: ' + esc(reason) +
+      '. NetDash will not engage a lockdown it cannot actually enforce — ' +
+      'give this machine raw/admin capabilities, or run it on the gateway.';
+
+  return (
+    '<section class="card settings-sec" style="border-left:3px solid ' +
+    (s.lockdown ? 'var(--red)' : 'var(--border)') + '">' +
+    '<div class="card-head"><span class="card-title">Lockdown</span>' +
+    '<span class="desc" style="margin-left:12px">Panic switch — the internet stops for everyone but you</span>' +
+    (s.lockdown
+      ? '<span class="chipmini" style="margin-left:auto;color:var(--red);border-color:var(--red)">' +
+        'ENGAGED</span>'
+      : '') +
+    '</div><div style="padding:6px 18px">' +
+    row('Mode',
+      '<label style="display:flex;align-items:center;gap:10px;font-size:13.5px;cursor:pointer' +
+      (canEnforce ? '' : ';opacity:.55') + '">' +
+      '<input type="checkbox" id="gLockdown" data-action="toggle-lockdown"' +
+      (s.lockdown ? ' checked' : '') + (canEnforce ? '' : ' disabled') + '>' +
+      '<b>Block internet for every device except this machine and Trusted ones</b></label>',
+      hint) +
+    row('Trusted devices',
+      '<a class="btn" href="#/devices">Choose on the Devices page</a>',
+      'Open a device → Overview → “Keep online during lockdown”. Anything not marked stays ' +
+      'cut off. Per-device blocks and active-hours schedules still apply once lockdown is released.') +
+    '</div></section>'
+  );
+}
 
 export function settingsView(): string {
   const s = state.settings;
@@ -19,11 +82,24 @@ export function settingsView(): string {
     '<section class="card settings-sec"><div class="card-head"><span class="card-title">' +
     title + '</span><span class="desc" style="margin-left:12px">' + desc +
     '</span></div><div style="padding:6px 18px">' + inner + '</div></section>';
-  const cap = (label: string, v: string, ok: boolean) =>
-    '<div style="display:flex;gap:10px;font-size:12.5px;padding:3px 0">' +
-    '<span style="width:170px;color:var(--muted);flex:none">' + label + '</span>' +
-    '<span style="color:' + (ok ? 'var(--green)' : 'var(--amber)') + '">' +
-    esc(v) + '</span></div>';
+  const cap = (label: string, v: string, ok: boolean) => {
+    // Enforcement reasons run to 200+ chars and repeat across rows ("behind
+    // gateway … (arp: raw packet access denied — need CAP_NET_RAW (sudo
+    // setcap …))"), which wrapped the whole panel. Split the remediation hint
+    // onto its own muted line so the status itself stays scannable.
+    const i = v.indexOf(' (arp: ');
+    const head = i > 0 ? v.slice(0, i) : v;
+    const fix = i > 0 ? v.slice(i + 7, v.length - 1) : '';
+    return (
+      '<div style="display:flex;gap:10px;font-size:12.5px;padding:3px 0">' +
+      '<span style="width:170px;color:var(--muted);flex:none">' + label + '</span>' +
+      '<div style="min-width:0">' +
+      '<div style="color:' + (ok ? 'var(--green)' : 'var(--amber)') + '">' +
+      esc(head) + '</div>' +
+      (fix ? '<div style="color:var(--muted)">' + esc(fix) + '</div>' : '') +
+      '</div></div>'
+    );
+  };
   return (
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
     '<h2 style="margin:0;font-size:18px">Settings</h2>' +
@@ -35,6 +111,7 @@ export function settingsView(): string {
     'Only <b>WAN IP, both SSIDs, router IP and the SNMP block</b> are stored by NetDash and used by the backend. ' +
     'Fields marked <i>reference only</i> (connection type, DNS, Wi-Fi channel/security/password, DHCP range, firewall/UPnP/remote) ' +
     'are kept in your browser for your own reference and are <b>not applied</b> to any device.</div>' +
+    lockdownSection(s, status) +
     sec(
       'Internet',
       'How your network reaches the world',
@@ -213,6 +290,24 @@ export async function saveSettings(): Promise<void> {
     toast('Saved to NetDash: WAN IP, SSIDs, router IP and SNMP. Network/Wi-Fi controls are reference-only and were not applied.');
   } catch {
     toast('Could not reach the API — settings not saved', 'err');
+  }
+}
+
+/**
+ * Engage or release lockdown right away. The switch deliberately bypasses
+ * "Save changes" — and if the backend refuses (no enforcement path, or the
+ * API is unreachable) the toggle snaps back rather than showing a protected
+ * network that is not protected.
+ */
+export async function setLockdown(on: boolean): Promise<void> {
+  const prev = state.settings.lockdown;
+  state.settings.lockdown = on;
+  try {
+    state.settings = await putSettings(state.settings);
+    toast(on ? 'Lockdown engaged — internet cut for untrusted devices' : 'Lockdown released');
+  } catch (e) {
+    state.settings.lockdown = prev;
+    toast(e instanceof Error ? e.message : 'Could not change lockdown', 'err');
   }
 }
 

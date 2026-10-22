@@ -362,7 +362,20 @@ function tabDeviceSettings(d: Device): string {
       '<option value="allowed"' + (!d.blocked ? ' selected' : '') + '>Allowed</option>' +
       '<option value="blocked"' + (d.blocked ? ' selected' : '') + '>Blocked</option>' +
       '</select>',
-      'Blocking cuts WAN access but keeps the device on the LAN') +
+      'Blocking cuts WAN access but keeps the device on the LAN' +
+      (d.lockdown
+        ? ' — <b style="color:var(--red)">this device is currently cut off by lockdown mode, ' +
+          'not by an individual block</b>'
+        : '')) +
+    row('Lockdown',
+      '<label style="display:flex;align-items:center;gap:8px;font-size:13.5px' +
+      (d.self ? ';opacity:.55' : '') + '">' +
+      '<input type="checkbox" id="dnTrusted"' + (d.trusted ? ' checked' : '') +
+      (d.self ? ' disabled' : '') + '>' +
+      ' Keep online during lockdown</label>',
+      d.self
+        ? 'This machine is always exempt from lockdown mode'
+        : 'Lockdown mode (Settings) cuts every device except this machine and the ones marked here') +
     row('Speed limit',
       '<div style="display:flex;gap:6px;align-items:center">' +
       '<span style="color:var(--muted)">↓</span>' +
@@ -424,6 +437,8 @@ function timelineHtml(d: Device): string {
   const items: Array<{ t: string; txt: string; sev: string }> = [];
   if (st === 'offline' && d.lastSeen)
     items.push({ t: lastSeenOf(d), txt: 'Disconnected — last seen', sev: 'critical' });
+  if (d.lockdown)
+    items.push({ t: '—', txt: 'Cut off by lockdown mode — not an individual block', sev: 'warning' });
   if (d.blocked)
     items.push({ t: '—', txt: 'Internet access blocked by admin', sev: 'warning' });
   if (!d.blocked && (d.speedDown || d.speedUp))
@@ -525,6 +540,10 @@ export async function saveDevice(id: number): Promise<void> {
   const watched = document.getElementById('dnWatched') as HTMLInputElement | null;
   if (watched && !watched.disabled && watched.checked !== d.watched) {
     patch.watched = watched.checked;
+  }
+  const trusted = document.getElementById('dnTrusted') as HTMLInputElement | null;
+  if (trusted && !trusted.disabled && trusted.checked !== d.trusted) {
+    patch.trusted = trusted.checked;
   }
   if (Object.keys(patch).length === 0) {
     toast('No changes to save');

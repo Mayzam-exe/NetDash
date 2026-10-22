@@ -105,7 +105,11 @@ export const legendHtml = () =>
   '<span><span class="dot on"></span> connected</span>' +
   '<span><span class="dot warning"></span> warning</span>' +
   '<span><span class="dot offline"></span> offline</span>' +
-  '<span><span class="dot blocked"></span> blocked</span></div>';
+  '<span><span class="dot blocked"></span> blocked</span>' +
+  (state.devices.some(d => d.lockdown)
+    ? '<span><span class="dot blocked" style="background:var(--crimson)"></span> lockdown</span>'
+    : '') +
+  '</div>';
 
 export function toolbarHtml(title: string, viewAll: boolean): string {
   const chip = (v: string, l: string) =>

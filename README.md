@@ -41,6 +41,15 @@ no Node runtime, no cloud, no external services.
   bridge: poisoned devices keep working but their frames are relayed through
   a token-bucket shaper, so TCP self-throttles to the configured rate.
   Block overrides limit; limits clear cleanly on unblock/shutdown.
+- **Lockdown** — a panic switch in Settings that cuts internet for every
+  device at once except this machine, the router, and the devices you marked
+  *Keep online during lockdown*. It applies the instant you flip it (no save
+  button), rides the same enforcement path as ordinary blocking, and is
+  refused outright when the host has no way to enforce it — so the dashboard
+  never shows a protected network that is not protected. Releasing it restores
+  exactly the previous state: per-device blocks and active-hours schedules
+  still stand. The switch is a setting, so it survives a restart, and it is
+  announced as a critical alert with the real number of devices cut off.
 - **Device actions** — block/allow, forget (10-minute rediscovery grace),
   real ICMP ping from the server, name/priority/reservation settings.
   Priority and reservations are stored and displayed for reference only:

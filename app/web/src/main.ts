@@ -42,7 +42,7 @@ import { dashboardView } from './views/dashboard';
 import { deviceView, mergeDevice, restoreScan, runDiag, saveDevice } from './views/device';
 import { devicesView } from './views/devices';
 import { atlasHud, mapView } from './views/map';
-import { discardSettings, saveSettings, settingsView } from './views/settings';
+import { discardSettings, saveSettings, setLockdown, settingsView } from './views/settings';
 import { h, render as renderPreact } from 'preact';
 import { AlertsApp } from './views/alerts.app';
 import { alertFilterSig, syncSignals, uiTick } from './signals';
@@ -134,6 +134,7 @@ function render(preserveScroll = false): void {
     else n.removeAttribute('aria-current');
   }
   updateBadge();
+  updateLockdownBadge();
   refreshCharts();
   if (state.view === 'map') {
     mountAtlas();
@@ -192,7 +193,15 @@ function updateBadge(): void {
   );
 }
 
+/** Shows the always-on LOCKDOWN marker while the panic switch is engaged. */
+function updateLockdownBadge(): void {
+  const on = state.settings.lockdown || !!state.status?.lockdown;
+  const b = document.getElementById('lockdownBadge');
+  if (b) b.style.display = on ? '' : 'none';
+}
+
 function updateRailFoot(): void {
+  const on = state.settings.lockdown || !!state.status?.lockdown;
   const el = document.getElementById('railFoot');
   if (!el) return;
   const st = state.status;
@@ -200,6 +209,7 @@ function updateRailFoot(): void {
   const up = st && st.startedAt ? Math.max(0, Date.now() - Date.parse(st.startedAt)) : -1;
   const upStr = up >= 0 ? fmtDays(up) : '—';
   el.innerHTML =
+    (on ? '<b style="color:var(--red)">LOCKDOWN ENGAGED</b><br>' : '') +
     esc(ssid) + ' · ' + esc(gatewayIp()) + '<br>' +
     esc(st ? st.version : '…') + ' · uptime ' + esc(upStr);
 }
@@ -599,6 +609,13 @@ async function handleClick(e: MouseEvent): Promise<void> {
       await saveSettings();
       render();
       break;
+    case 'toggle-lockdown': {
+      // Applied straight away — see setLockdown().
+      const box = el as HTMLInputElement;
+      await setLockdown(box.checked);
+      render();
+      break;
+    }
     case 'discard-settings':
       await discardSettings();
       render();

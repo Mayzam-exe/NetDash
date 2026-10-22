@@ -267,12 +267,18 @@ func LocalSelf() (ip, mac, ifName string) {
 	return ip, "", ""
 }
 
+// FallbackSelfName is what SelfName answers when the hostname cannot be used.
+// Callers that need to recognise a name SelfName produced — including one it
+// produced before a hostname became available — compare against both this and
+// SelfName(), since the two answers can differ over time.
+const FallbackSelfName = "This machine"
+
 // SelfName is the display name for the machine running NetDash: the system
 // hostname unless it is missing or just an IP (some DHCP setups do that).
 func SelfName() string {
 	h, err := os.Hostname()
 	if err != nil {
-		return "This machine"
+		return FallbackSelfName
 	}
 	return nameFromHostname(h)
 }
@@ -280,7 +286,7 @@ func SelfName() string {
 func nameFromHostname(h string) string {
 	h = strings.TrimSuffix(strings.TrimSpace(h), ".")
 	if h == "" || h == "localhost" || net.ParseIP(h) != nil {
-		return "This machine"
+		return FallbackSelfName
 	}
 	return h
 }

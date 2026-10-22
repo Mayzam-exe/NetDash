@@ -3,7 +3,10 @@ Description=NetDash home network dashboard
 After=network-online.target
 
 [Service]
-ExecStart=/home/maxim/Projects/netdash/run/netdash -addr 127.0.0.1:7420 -data /home/maxim/Projects/netdash/data
+# Installed and granted by grantcaps.sh, which puts the binary at /usr/local
+# because file capabilities are ignored on the project's own volume (removable
+# media, mounted nosuid) and are only read when a process starts.
+ExecStart=/usr/local/lib/netdash/netdash -addr 127.0.0.1:7420 -data /run/media/maxim/e8c26ee7-14c0-40fb-92ff-ee2d4153fb6f/Projects/netdash/data
 Restart=on-failure
 RestartSec=3
 

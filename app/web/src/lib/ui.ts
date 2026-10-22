@@ -184,7 +184,10 @@ export function deviceKind(d: Device): Kind {
 export function subline(d: Device): string {
   const st = displayState(d);
   if (st === 'offline') return '<span>Last seen ' + lastSeenOf(d) + '</span>';
-  if (st === 'blocked') return '<span class="blk-text">Blocked by you</span>';
+  if (st === 'blocked')
+    return d.lockdown
+      ? '<span class="blk-text">Cut off by lockdown</span>'
+      : '<span class="blk-text">Blocked by you</span>';
   if (st === 'warning')
     return (
       '<span class="warn-text">' +

@@ -178,6 +178,12 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.e.PutSettings(st); err != nil {
+		// A rejected lockdown (nothing here can enforce it) is a bad request,
+		// not a server fault — surface it so the UI can say why.
+		if errors.Is(err, engine.ErrInvalid) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

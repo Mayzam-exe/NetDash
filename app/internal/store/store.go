@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS devices(
   conn TEXT NOT NULL DEFAULT 'unknown',
   blocked INTEGER NOT NULL DEFAULT 0,
   reserved INTEGER NOT NULL DEFAULT 0,
+  trusted INTEGER NOT NULL DEFAULT 0,
   priority TEXT NOT NULL DEFAULT 'normal',
   schedule TEXT NOT NULL DEFAULT '',
   speed_down INTEGER NOT NULL DEFAULT 0,
@@ -104,6 +105,7 @@ func migrate(db *sql.DB) error {
 	hasSpeedDown := false
 	hasSpeedUp := false
 	hasWatched := false
+	hasTrusted := false
 	for rows.Next() {
 		var cid, notnull int
 		var name, typ string
@@ -121,6 +123,8 @@ func migrate(db *sql.DB) error {
 			hasSpeedUp = true
 		case "watched":
 			hasWatched = true
+		case "trusted":
+			hasTrusted = true
 		}
 	}
 	rows.Close()
@@ -147,6 +151,11 @@ func migrate(db *sql.DB) error {
 			return err
 		}
 	}
+	if !hasTrusted {
+		if _, err := db.Exec(`ALTER TABLE devices ADD COLUMN trusted INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
 	// One-time repair: devices created while the schema defaulted
 	// schedule to '07:00-23:00' would be auto-blocked outside that window
 	// (the 23:00 mass-poisoning bug). Empty = always allowed.
@@ -169,15 +178,16 @@ func (s *Store) Close() error { return s.db.Close() }
 
 func scanDevice(row interface{ Scan(...any) error }) (model.Device, error) {
 	var d model.Device
-	var blocked, reserved, watched int
+	var blocked, reserved, trusted, watched int
 	var first, last int64
 	err := row.Scan(&d.ID, &d.IP, &d.MAC, &d.Name, &d.Vendor, &d.Kind, &d.Conn, &blocked, &reserved,
-		&d.Priority, &d.Schedule, &d.SpeedDown, &d.SpeedUp, &watched, &first, &last)
+		&trusted, &d.Priority, &d.Schedule, &d.SpeedDown, &d.SpeedUp, &watched, &first, &last)
 	if err != nil {
 		return d, err
 	}
 	d.Blocked = blocked != 0
 	d.Reserved = reserved != 0
+	d.Trusted = trusted != 0
 	d.Watched = watched != 0
 	if first > 0 {
 		t := time.UnixMilli(first).UTC()
@@ -190,7 +200,7 @@ func scanDevice(row interface{ Scan(...any) error }) (model.Device, error) {
 	return d, nil
 }
 
-const devCols = `id, ip, mac, name, vendor, kind, conn, blocked, reserved, priority, schedule, speed_down, speed_up, watched, first_seen, last_seen`
+const devCols = `id, ip, mac, name, vendor, kind, conn, blocked, reserved, trusted, priority, schedule, speed_down, speed_up, watched, first_seen, last_seen`
 
 func (s *Store) ListDevices() ([]model.Device, error) {
 	rows, err := s.db.Query(`SELECT ` + devCols + ` FROM devices ORDER BY name, ip`)
@@ -269,9 +279,9 @@ func (s *Store) SaveDevice(d model.Device) error {
 	if d.LastSeen != nil {
 		last = d.LastSeen.UnixMilli()
 	}
-	_, err := s.db.Exec(`UPDATE devices SET mac=?, name=?, vendor=?, kind=?, conn=?, blocked=?, reserved=?,
+	_, err := s.db.Exec(`UPDATE devices SET mac=?, name=?, vendor=?, kind=?, conn=?, blocked=?, reserved=?, trusted=?,
 		priority=?, schedule=?, speed_down=?, speed_up=?, watched=?, first_seen=?, last_seen=? WHERE id=?`,
-		d.MAC, d.Name, d.Vendor, d.Kind, d.Conn, boolInt(d.Blocked), boolInt(d.Reserved),
+		d.MAC, d.Name, d.Vendor, d.Kind, d.Conn, boolInt(d.Blocked), boolInt(d.Reserved), boolInt(d.Trusted),
 		d.Priority, d.Schedule, d.SpeedDown, d.SpeedUp, boolInt(d.Watched), first, last, d.ID)
 	return err
 }

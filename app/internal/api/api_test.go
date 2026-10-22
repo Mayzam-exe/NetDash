@@ -116,3 +116,29 @@ func TestPutSettingsValidatesIPs(t *testing.T) {
 		t.Fatalf("good settings: code=%d want 200 (%s)", rec.Code, rec.Body.String())
 	}
 }
+
+// TestPutSettingsLockdownRequiresEnforcement: the panic switch must be
+// refused when the host cannot apply it. Silently accepting it would show a
+// protected network that is not protected.
+func TestPutSettingsLockdownRequiresEnforcement(t *testing.T) {
+	s := newTestServer(t, "")
+	put := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		s.handlePutSettings(rec, httptest.NewRequest("PUT", "/api/settings", strings.NewReader(body)))
+		return rec
+	}
+
+	// This fixture has no firewall capability and no ARP bridge.
+	rec := put(`{"gatewayIp":"192.168.1.1","wanIp":"1.1.1.1","lockdown":true}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("unenforceable lockdown: code=%d want 400 (%s)", rec.Code, rec.Body.String())
+	}
+
+	rec = put(`{"gatewayIp":"192.168.1.1","wanIp":"1.1.1.1","lockdown":false}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("release: code=%d want 200 (%s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"lockdown":false`) {
+		t.Fatalf("response does not echo lockdown state: %s", rec.Body.String())
+	}
+}
