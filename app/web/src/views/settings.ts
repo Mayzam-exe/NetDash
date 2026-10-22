@@ -50,11 +50,17 @@ function lockdownSection(s: Settings, status: Status | null): string {
         'ENGAGED</span>'
       : '') +
     '</div><div style="padding:6px 18px">' +
+    // A slide switch rather than a tick box: this control is thrown, not
+    // filled in. The input keeps the id/data-action the click delegation and
+    // setLockdown() already bind to, and stays disabled (with .is-disabled
+    // dimming it) whenever there is no enforcement path.
     row('Mode',
-      '<label style="display:flex;align-items:center;gap:10px;font-size:13.5px;cursor:pointer' +
-      (canEnforce ? '' : ';opacity:.55') + '">' +
+      '<label class="switch-row lockdown' + (canEnforce ? '' : ' is-disabled') + '"' +
+      (canEnforce ? '' : ' title="Unavailable — NetDash cannot enforce this on this host"') + '>' +
+      '<span class="switch">' +
       '<input type="checkbox" id="gLockdown" data-action="toggle-lockdown"' +
       (s.lockdown ? ' checked' : '') + (canEnforce ? '' : ' disabled') + '>' +
+      '<span class="sl"></span></span>' +
       '<b>Block internet for every device except this machine and Trusted ones</b></label>',
       hint) +
     row('Trusted devices',

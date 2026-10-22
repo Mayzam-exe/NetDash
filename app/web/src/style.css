@@ -229,6 +229,13 @@ dl.kv dd{margin:0;font-size:13.5px;font-weight:550;text-align:right}
 .switch .sl:before{content:"";position:absolute;width:15px;height:15px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.18s}
 .switch input:checked + .sl{background:var(--green)}
 .switch input:checked + .sl:before{transform:translateX(17px)}
+/* the input itself is 0×0, so the ring has to be drawn on the track */
+.switch input:focus-visible + .sl{outline:2px solid var(--accent);outline-offset:2px}
+.switch-row{display:flex;align-items:center;gap:11px;font-size:13.5px;cursor:pointer;line-height:1.4}
+.switch-row.is-disabled{opacity:.55;cursor:not-allowed}
+/* Lockdown is a panic control, not a preference: engaged reads red to match
+   the ENGAGED chip and the card's left border instead of the default green. */
+.switch-row.lockdown input:checked + .sl{background:var(--red);box-shadow:0 0 10px rgba(200,65,59,.5)}
 .settings-sec{margin-bottom:13px}
 .form-actions{display:flex;gap:10px;justify-content:flex-end;padding-top:6px}
 
