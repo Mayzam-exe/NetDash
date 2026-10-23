@@ -1077,16 +1077,17 @@ func (e *Engine) publishNow() {
 /* ---------- mutations ---------- */
 
 type DevicePatch struct {
-	Blocked   *bool   `json:"blocked,omitempty"`
-	Name      *string `json:"name,omitempty"`
-	Priority  *string `json:"priority,omitempty"`
-	Reserved  *bool   `json:"reserved,omitempty"`
-	Schedule  *string `json:"schedule,omitempty"`
-	Kind      *string `json:"kind,omitempty"`      // one of ident.Kinds, or "" = auto
-	SpeedDown *int    `json:"speedDown,omitempty"` // kbit/s, 0 = unlimited
-	SpeedUp   *int    `json:"speedUp,omitempty"`   // kbit/s, 0 = unlimited
-	Watched   *bool   `json:"watched,omitempty"`   // intercept for intel
-	Trusted   *bool   `json:"trusted,omitempty"`   // exempt from lockdown mode
+	Blocked    *bool   `json:"blocked,omitempty"`
+	BlockUntil *int64  `json:"blockUntil,omitempty"` // unix ms, 0 = clear expiry
+	Name       *string `json:"name,omitempty"`
+	Priority   *string `json:"priority,omitempty"`
+	Reserved   *bool   `json:"reserved,omitempty"`
+	Schedule   *string `json:"schedule,omitempty"`
+	Kind       *string `json:"kind,omitempty"`      // one of ident.Kinds, or "" = auto
+	SpeedDown  *int    `json:"speedDown,omitempty"` // kbit/s, 0 = unlimited
+	SpeedUp    *int    `json:"speedUp,omitempty"`   // kbit/s, 0 = unlimited
+	Watched    *bool   `json:"watched,omitempty"`   // intercept for intel
+	Trusted    *bool   `json:"trusted,omitempty"`   // exempt from lockdown mode
 }
 
 // reSchedule accepts "HH:MM-HH:MM" with -, – or — as separator.
@@ -1111,6 +1112,10 @@ func (e *Engine) UpdateDevice(id int64, p DevicePatch) (model.Device, error) {
 	if p.SpeedUp != nil && (*p.SpeedUp < 0 || *p.SpeedUp > 10_000_000) {
 		e.mu.Unlock()
 		return model.Device{}, fmt.Errorf("%w: speedUp must be 0..10000000 kbit/s", ErrInvalid)
+	}
+	if p.BlockUntil != nil && *p.BlockUntil < 0 {
+		e.mu.Unlock()
+		return model.Device{}, fmt.Errorf("%w: blockUntil must be unix ms >= 0", ErrInvalid)
 	}
 	if p.Blocked != nil && *p.Blocked && d.Self {
 		e.mu.Unlock()
@@ -1139,6 +1144,18 @@ func (e *Engine) UpdateDevice(id int64, p DevicePatch) (model.Device, error) {
 	}
 	if p.Blocked != nil {
 		cand.Blocked = *p.Blocked
+		if p.BlockUntil == nil {
+			// A bare block/unblock patch carries permanent semantics: any
+			// previous timed expiry is dropped unless a new one is supplied.
+			cand.BlockUntil = 0
+		}
+	}
+	if p.BlockUntil != nil {
+		if cand.Blocked && *p.BlockUntil > 0 {
+			cand.BlockUntil = *p.BlockUntil
+		} else {
+			cand.BlockUntil = 0
+		}
 	}
 	if p.Reserved != nil {
 		cand.Reserved = *p.Reserved
@@ -1249,7 +1266,11 @@ func (e *Engine) UpdateDevice(id int64, p DevicePatch) (model.Device, error) {
 	}
 	if blockChanged {
 		if cand.Blocked {
-			e.AddAlert("warning", "Internet access blocked for "+cand.Name, &cand.ID)
+			msg := "Internet access blocked for " + cand.Name
+			if cand.BlockUntil > 0 {
+				msg += " until " + time.UnixMilli(cand.BlockUntil).Format("15:04")
+			}
+			e.AddAlert("warning", msg, &cand.ID)
 		} else {
 			e.AddAlert("info", "Internet access restored for "+cand.Name, &cand.ID)
 		}
@@ -1786,6 +1807,45 @@ func (e *Engine) meterLoop(ctx context.Context) {
 	}
 }
 
+// reapTimedBlocks releases blocks whose blockUntil deadline has passed. It
+// runs on the schedule loop, which already owns periodic block-set
+// reconciliation: clearing the flags here means that same loop's next
+// desired-set diff tears the poison down on the same pass.
+func (e *Engine) reapTimedBlocks() {
+	nowMs := time.Now().UnixMilli()
+	var touched, released []model.Device
+	e.mu.Lock()
+	for id, d := range e.devices {
+		if d.BlockUntil <= 0 || nowMs < d.BlockUntil {
+			continue
+		}
+		// Invariant: blockUntil > 0 only ever means "blocked until then" —
+		// an expiry sitting on an unblocked device is stale state, cleared here.
+		d.BlockUntil = 0
+		if d.Blocked {
+			d.Blocked = false
+			released = append(released, d)
+		}
+		e.devices[id] = d
+		touched = append(touched, d)
+	}
+	e.mu.Unlock()
+	if len(touched) == 0 {
+		return
+	}
+	for i := range touched {
+		d := touched[i]
+		if err := e.st.SaveDevice(d); err != nil {
+			log.Printf("timed block release: %v", err)
+		}
+	}
+	for i := range released {
+		d := released[i]
+		e.AddAlert("info", "Timed block expired — internet restored for "+d.Name, &d.ID)
+	}
+	e.publishNow()
+}
+
 // scheduleLoop enforces active-hours windows: outside the window a device's
 // internet is cut (and restored when the window opens again).
 func (e *Engine) scheduleLoop(ctx context.Context) {
@@ -1798,6 +1858,7 @@ func (e *Engine) scheduleLoop(ctx context.Context) {
 			return
 		case <-t.C:
 		}
+		e.reapTimedBlocks()
 		e.refreshBlockMode()
 		e.mu.RLock()
 		reason := e.blockReasonLocked()
@@ -1836,11 +1897,18 @@ func (e *Engine) scheduleLoop(ctx context.Context) {
 				continue
 			}
 			was, known := prevWant[d.IP]
+			// Only devices with a real window get active-hours messages —
+			// user/timed blocks and lockdown changes raise their own alerts,
+			// and an empty "inside active hours ()" is just noise.
 			switch {
 			case w && (!known || !was):
-				entered = append(entered, devRef{d.ID, d.Name, d.Schedule})
+				if d.Schedule != "" {
+					entered = append(entered, devRef{d.ID, d.Name, d.Schedule})
+				}
 			case !w && known && was:
-				left = append(left, devRef{d.ID, d.Name, d.Schedule})
+				if d.Schedule != "" {
+					left = append(left, devRef{d.ID, d.Name, d.Schedule})
+				}
 			}
 		}
 		prevWant = want

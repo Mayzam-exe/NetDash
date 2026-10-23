@@ -537,6 +537,32 @@ async function handleClick(e: MouseEvent): Promise<void> {
     case 'unblock':
       void setBlocked(id, false);
       break;
+    case 'block-for': {
+      const mins = Number(el.dataset.mins || 60);
+      const until = Date.now() + mins * 60000;
+      const d = findDevice(id);
+      const at = new Date(until).toTimeString().slice(0, 5);
+      const lab = mins % 60 === 0 ? mins / 60 + 'h' : mins + 'm';
+      confirmModal(
+        'Block ' + (d ? d.name : 'this device') + ' until ' + at + '?',
+        'The device keeps its Wi-Fi connection but loses internet access. ' +
+          'The block releases itself at ' + at + '.',
+        'Block for ' + lab,
+        true,
+        () => {
+          postDevice(id, { blocked: true, blockUntil: until })
+            .then(upd => {
+              mergeDevice(upd);
+              toast((upd.name || (d ? d.name : 'Device')) + ' blocked until ' + at, 'warn');
+              render();
+            })
+            .catch((e: unknown) =>
+              toast(e instanceof Error ? e.message : 'Could not block the device', 'err'),
+            );
+        },
+      );
+      break;
+    }
     case 'speed': {
       const d = findDevice(id);
       if (d) speedModal(d, () => render());

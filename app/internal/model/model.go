@@ -4,17 +4,18 @@ import "time"
 
 // Device is the JSON shape consumed by the web client.
 type Device struct {
-	ID       int64  `json:"id"`
-	IP       string `json:"ip"`
-	MAC      string `json:"mac"`
-	Name     string `json:"name"`
-	Vendor   string `json:"vendor"`
-	Kind     string `json:"kind"` // phone|laptop|desktop|tablet|tv|camera|speaker|thermostat|printer|hub|console|router|"" (auto/unknown)
-	Conn     string `json:"conn"` // eth | wifi5 | wifi2 | unknown
-	Signal   *int   `json:"signal"`
-	State    string `json:"state"` // online | offline | warning
-	Blocked  bool   `json:"blocked"`
-	Reserved bool   `json:"reserved"`
+	ID         int64  `json:"id"`
+	IP         string `json:"ip"`
+	MAC        string `json:"mac"`
+	Name       string `json:"name"`
+	Vendor     string `json:"vendor"`
+	Kind       string `json:"kind"` // phone|laptop|desktop|tablet|tv|camera|speaker|thermostat|printer|hub|console|router|"" (auto/unknown)
+	Conn       string `json:"conn"` // eth | wifi5 | wifi2 | unknown
+	Signal     *int   `json:"signal"`
+	State      string `json:"state"` // online | offline | warning
+	Blocked    bool   `json:"blocked"`
+	BlockUntil int64  `json:"blockUntil"` // unix ms; 0 = permanent (or not blocked)
+	Reserved   bool   `json:"reserved"`
 	// Trusted devices stay online when lockdown mode is on. This machine is
 	// always exempt; the flag only matters for everything else.
 	Trusted bool `json:"trusted"`

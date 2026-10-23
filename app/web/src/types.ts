@@ -14,6 +14,7 @@ export interface Device {
   signal: number | null;
   state: DevState;
   blocked: boolean;
+  blockUntil: number; // unix ms; 0 = permanent block (or not blocked)
   reserved: boolean;
   trusted: boolean; // exempt from lockdown mode
   lockdown: boolean; // currently cut off *because* lockdown is on (computed)
@@ -31,6 +32,7 @@ export interface Device {
 
 export interface DevicePatch {
   blocked?: boolean;
+  blockUntil?: number; // unix ms, 0 = clear expiry; with blocked:true = timed block
   name?: string;
   priority?: Priority;
   reserved?: boolean;

@@ -62,8 +62,18 @@ export function deviceView(): string {
     (d.self
       ? ''
       : (d.blocked
-          ? '<button class="btn" data-action="unblock" data-id="' + d.id + '">Allow internet</button>'
-          : '<button class="btn danger" data-action="block" data-id="' + d.id + '">Block</button>') +
+          ? '<button class="btn" data-action="unblock" data-id="' + d.id + '">Allow internet</button>' +
+            (d.blockUntil > 0
+              ? '<span class="chipmini" title="Timed block — releases automatically">releases ' +
+                new Date(d.blockUntil).toTimeString().slice(0, 5) + '</span>'
+              : '')
+          : '<button class="btn danger" data-action="block" data-id="' + d.id + '">Block</button>' +
+            '<button class="btn" data-action="block-for" data-mins="60" data-id="' + d.id +
+              '" title="Block for 1 hour">1h</button>' +
+            '<button class="btn" data-action="block-for" data-mins="240" data-id="' + d.id +
+              '" title="Block for 4 hours">4h</button>' +
+            '<button class="btn" data-action="block-for" data-mins="720" data-id="' + d.id +
+              '" title="Block for 12 hours">12h</button>') +
         (d.watched
           ? '<button class="btn" data-action="intercept" data-id="' + d.id + '">Stop intercepting</button>'
           : '<button class="btn" data-action="intercept" data-id="' + d.id + '">Intercept</button>') +
