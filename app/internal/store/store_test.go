@@ -73,6 +73,32 @@ func TestAlertsRetention(t *testing.T) {
 	}
 }
 
+// TestClearAlerts: the Clear-all button wipes every row, read or not, so a
+// restart can't resurrect a log the user already cleared.
+func TestClearAlerts(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer s.Close()
+
+	for _, m := range []string{"one", "two", "three"} {
+		if _, err := s.AddAlert("info", m, nil, time.Now().UnixMilli()); err != nil {
+			t.Fatalf("add %s: %v", m, err)
+		}
+	}
+	if err := s.ClearAlerts(); err != nil {
+		t.Fatalf("ClearAlerts: %v", err)
+	}
+	alerts, err := s.ListAlerts(100)
+	if err != nil {
+		t.Fatalf("ListAlerts: %v", err)
+	}
+	if len(alerts) != 0 {
+		t.Fatalf("log not cleared: %+v", alerts)
+	}
+}
+
 func TestSettingsRoundTrip(t *testing.T) {
 	s, err := Open(t.TempDir())
 	if err != nil {

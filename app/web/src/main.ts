@@ -4,6 +4,7 @@ import './tokens.css';
 import {
   ackAlert,
   addSpoof,
+  clearAlerts,
   delSpoof,
   deleteDevice,
   getIntel,
@@ -471,6 +472,14 @@ async function handleClick(e: MouseEvent): Promise<void> {
       updateBadge();
       break;
     }
+    case 'clear-alerts':
+      // Rows are gone server-side; stale client ids would poison any id the
+      // store reuses after the wipe. The SSE snapshot then repaints every view.
+      state.readIds.clear();
+      clearAlerts()
+        .then(() => toast('Alerts cleared'))
+        .catch(() => toast('Could not clear alerts', 'err'));
+      break;
     case 'open-cmdk':
       openCmdk();
       break;

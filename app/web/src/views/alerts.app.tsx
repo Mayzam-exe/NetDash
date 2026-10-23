@@ -71,6 +71,9 @@ export function AlertsApp() {
         <span class="chipmini unread-chip" style="margin-left:auto">
           {unread + ' unresolved'}
         </span>
+        <button class="btn" data-action="clear-alerts">
+          Clear all
+        </button>
       </div>
       <div class="alerts-view-list">
         {list.length === 0 ? (

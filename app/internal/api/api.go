@@ -46,6 +46,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/devices/{id}/scan", s.handleDeviceScanLast)
 	mux.HandleFunc("GET /api/alerts", s.handleAlerts)
 	mux.HandleFunc("POST /api/alerts/{id}/ack", s.handleAck)
+	mux.HandleFunc("POST /api/alerts/clear", s.handleClearAlerts)
 	mux.HandleFunc("GET /api/history", s.handleHistory)
 	mux.HandleFunc("GET /api/devices/{id}/intel", s.handleDeviceIntel)
 	mux.HandleFunc("GET /api/spoof-rules", s.handleSpoofList)
@@ -382,6 +383,14 @@ func (s *Server) handleAck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.e.AckAlert(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (s *Server) handleClearAlerts(w http.ResponseWriter, r *http.Request) {
+	if err := s.e.ClearAlerts(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

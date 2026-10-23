@@ -444,6 +444,12 @@ func (s *Store) AckAlert(id int64) error {
 	return err
 }
 
+// ClearAlerts removes every row — the whole log, not just the unread ones.
+func (s *Store) ClearAlerts() error {
+	_, err := s.db.Exec(`DELETE FROM alerts`)
+	return err
+}
+
 func (s *Store) GetSettings() (model.Settings, error) {
 	var raw string
 	err := s.db.QueryRow(`SELECT value FROM meta WHERE key='settings'`).Scan(&raw)

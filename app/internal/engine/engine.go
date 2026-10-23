@@ -1366,6 +1366,21 @@ func (e *Engine) AckAlert(id int64) error {
 	return nil
 }
 
+// ClearAlerts wipes the log everywhere: SQLite (so a restart stays clear) and
+// the in-memory snapshot. The fireAlert dedupe map is deliberately untouched —
+// a cleared alert stays suppressed until its cooldown lapses, so clearing can't
+// be used to make stale conditions spam the log again.
+func (e *Engine) ClearAlerts() error {
+	if err := e.st.ClearAlerts(); err != nil {
+		return err
+	}
+	e.mu.Lock()
+	e.alerts = nil
+	e.mu.Unlock()
+	e.publishNow()
+	return nil
+}
+
 // fireAlert logs an alert unless the same key fired within the cooldown.
 func (e *Engine) fireAlert(key, sev, msg string, devID *int64, cooldown time.Duration) {
 	e.alertMu.Lock()

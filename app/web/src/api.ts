@@ -155,6 +155,10 @@ export function ackAlert(id: number): Promise<{ ok: boolean }> {
   return send<{ ok: boolean }>('/api/alerts/' + id + '/ack', 'POST', {});
 }
 
+export function clearAlerts(): Promise<{ ok: boolean }> {
+  return send<{ ok: boolean }>('/api/alerts/clear', 'POST', {});
+}
+
 export function openStream(
   onSnapshot: (s: Snapshot) => void,
   onError?: () => void,
