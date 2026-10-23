@@ -6,7 +6,8 @@ import type { Device } from '../types';
    from link quality, rank chips for YOU / GW / TRUSTED / CUT. Clicking an
    agent opens its dossier (same open-device action as the table row). */
 
-const FIG =
+/** The operative sprite — shared by the deck, the roster table and the dossier. */
+export const FIG =
   '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">' +
   '<path d="M9 43c0-8 6.5-12 15-12s15 4 15 12" fill="var(--panel2)" ' +
   'stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>' +

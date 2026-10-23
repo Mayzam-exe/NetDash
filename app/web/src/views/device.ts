@@ -1,8 +1,8 @@
 import { dnsLookupDevice, lastScan, pingDevice, postDevice, renewDHCP, restartRadio, scanDevice, tracerouteDevice } from '../api';
 import { displayState, findDevice, state } from '../state';
 import type { Device, DevicePatch, Priority, ScanResult } from '../types';
+import { FIG } from './deck';
 import {
-  ICONS,
   KIND_OPTIONS,
   checked,
   confirmModal,
@@ -48,7 +48,7 @@ export function deviceView(): string {
     esc(d.name) + '</span></div>' +
     '<section class="card">' +
     '<div class="detail-head">' +
-    '<div class="dh-left"><div class="dev-badge">' + ICONS[deviceKind(d)] + '</div>' +
+    '<div class="dh-left"><div class="dev-badge op-badge st-' + st + '">' + FIG + '</div>' +
     '<div><h2>' + esc(d.name) +
     '<span class="pill ' + st + '">' +
     (st === 'online' ? 'Connected' : st.charAt(0).toUpperCase() + st.slice(1)) +

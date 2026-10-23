@@ -503,6 +503,272 @@ h2, h3, h4 {
 .agent.st-blocked .op-state { color: var(--crimson); }
 
 /* =========================================================================
+   Cyber-deck component pass — the 2D system owns every screen, not just
+   the dashboard: shell, roster, dossier, settings, alerts log, terminal,
+   toasts and overlays all speak one HUD language.
+   ========================================================================= */
+
+/* State channel: any element tagged st-* carries --st; the sprite rules
+   below consume it. Inert everywhere else. */
+.st-online { --st: var(--green); }
+.st-warning { --st: var(--amber); }
+.st-blocked { --st: var(--crimson); }
+.st-offline { --st: var(--muted); }
+
+/* ---- shell: cockpit frame ---- */
+.brand {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.brand .logo {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.rail { border-right-color: color-mix(in srgb, var(--accent) 26%, var(--border)); }
+.topbar { border-bottom-color: color-mix(in srgb, var(--accent) 32%, var(--border)); }
+.nav-item {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.nav-item.active {
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    0 0 14px color-mix(in srgb, var(--accent) 14%, transparent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.nav-item .nbadge {
+  box-shadow: 0 0 9px color-mix(in srgb, var(--red) 60%, transparent);
+}
+.rail-foot {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.searchbtn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* ---- buttons: chunky HUD controls ---- */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.btn.primary {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.btn.danger,
+.btn.ghostdanger {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--red) 30%, transparent);
+}
+
+/* ---- tabs: segmented HUD control ---- */
+.tabs { border-bottom-color: color-mix(in srgb, var(--accent) 32%, var(--border)); }
+.tab {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.tab.active {
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* ---- chips: HUD tags ---- */
+.chip {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.chip.active {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.chipmini {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* ---- operative sprites: roster cells + dossier badge ---- */
+.op-mini {
+  display: inline-flex;
+  line-height: 0;
+  color: var(--st, var(--muted));
+  transition: transform var(--dur-fast);
+}
+.op-mini svg { width: 19px; height: 19px; display: block; }
+.op-mini.st-online,
+.op-mini.st-warning,
+.op-mini.st-blocked,
+.op-badge.st-online,
+.op-badge.st-warning,
+.op-badge.st-blocked {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--st) 60%, transparent));
+}
+.op-mini.st-blocked .antenna,
+.op-mini.st-offline .antenna { opacity: 0.15; }
+.tbl tbody tr:hover .op-mini { transform: scale(1.14); }
+
+.dev-badge.op-badge {
+  width: 52px;
+  height: 52px;
+  color: var(--st, var(--muted));
+  border-color: color-mix(in srgb, var(--st, var(--muted)) 45%, var(--border));
+}
+.dev-badge.op-badge svg { width: 32px; height: 32px; }
+.op-badge.st-online .antenna {
+  animation: ant 2s ease-in-out infinite;
+}
+.op-badge.st-blocked .antenna { opacity: 0.15; }
+.op-badge.st-offline { opacity: 0.6; }
+
+/* ---- roster table: instrument grid ---- */
+.tbl th {
+  border-bottom-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+}
+.copyable:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel2));
+  outline-color: var(--accent);
+}
+
+/* Blocked reads crimson across deck, table legend and dossier pill —
+   one state, one colour, shape (square) still distinguishes it. */
+.dot.blocked {
+  background: var(--crimson);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--crimson) 55%, transparent);
+}
+.pill {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.pill.blocked {
+  background: color-mix(in srgb, var(--crimson) 14%, transparent);
+  color: var(--crimson);
+  border: none;
+}
+
+/* ---- settings: focus glow, caret, switch glow ---- */
+.inp,
+.search-input,
+input,
+textarea {
+  caret-color: var(--accent);
+}
+.inp:focus,
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.switch input:checked + .sl {
+  box-shadow: 0 0 9px color-mix(in srgb, var(--green) 55%, transparent);
+}
+
+/* ---- overlays: palette, menu, modal ---- */
+.cmdk-box,
+.menu,
+.modal {
+  box-shadow:
+    var(--elev-3),
+    0 0 30px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.cmdk-box input {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.cmdk-item.sel { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* ---- alerts log: severity rails + glowing sev marks ---- */
+.alert-row.critical {
+  box-shadow: inset 3px 0 0 var(--red), inset 0 1px 0 var(--border-gold);
+}
+.alert-row.warning {
+  box-shadow: inset 3px 0 0 var(--amber), inset 0 1px 0 var(--border-gold);
+}
+.alert-row.info {
+  box-shadow: inset 3px 0 0 var(--blue), inset 0 1px 0 var(--border-gold);
+}
+.alert-item.critical { box-shadow: inset 3px 0 0 var(--red); }
+.alert-item.warning { box-shadow: inset 3px 0 0 var(--amber); }
+.alert-item.info { box-shadow: inset 3px 0 0 var(--blue); }
+.alert-row.critical .sev,
+.alert-item.critical .sev {
+  box-shadow: 0 0 8px color-mix(in srgb, var(--red) 75%, transparent);
+}
+.alert-row.warning .sev,
+.alert-item.warning .sev {
+  box-shadow: 0 0 8px color-mix(in srgb, var(--amber) 75%, transparent);
+}
+.alert-row.info .sev,
+.alert-item.info .sev {
+  box-shadow: 0 0 8px color-mix(in srgb, var(--blue) 75%, transparent);
+}
+
+/* ---- terminal: scanlines ---- */
+.term {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.03) 0 1px,
+    transparent 1px 3px
+  );
+}
+
+/* ---- toasts: console messages ---- */
+.toast {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  border-left-width: 4px;
+  box-shadow: var(--shadow), 0 0 16px color-mix(in srgb, var(--green) 25%, transparent);
+}
+.toast.err {
+  box-shadow: var(--shadow), 0 0 16px color-mix(in srgb, var(--red) 28%, transparent);
+}
+.toast.warn {
+  box-shadow: var(--shadow), 0 0 16px color-mix(in srgb, var(--amber) 28%, transparent);
+}
+
+/* ---- readouts & misc ---- */
+.kpi-big {
+  text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.kpi-big .unit { text-shadow: none; }
+.deck {
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+.deck .card-head .right {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+}
+.map-stats .seg .sl {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.empty {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+::selection {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--text);
+}
+
+/* =========================================================================
    Skip link + mobile tier (bottom bar ≤5 items, 44px touch targets)
    ========================================================================= */
 .skip-link {

@@ -1,6 +1,7 @@
 import { counts, displayState, state } from '../state';
 import type { Device } from '../types';
 import { connLabel, esc, sigHtml, subline, thrHtml } from '../lib/ui';
+import { FIG } from './deck';
 
 const ipNum = (ip: string) =>
   ip.split('.').reduce((acc, o) => acc * 256 + Number(o), 0);
@@ -67,7 +68,7 @@ export function tableHtml(): string {
       const st = displayState(d);
       return (
         '<tr class="st-' + st + '" data-action="open-device" data-id="' + d.id + '" tabindex="0">' +
-        '<td class="c-status"><span class="dot ' + st + '"></span></td>' +
+        '<td class="c-status"><span class="op-mini st-' + st + '">' + FIG + '</span></td>' +
         '<td class="c-name"><div class="nm">' + esc(d.name) + '</div><div class="sub">' +
         subline(d) + '</div></td>' +
         '<td><span class="copyable" data-action="copy" data-value="' + d.ip +
