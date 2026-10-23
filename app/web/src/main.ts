@@ -115,6 +115,9 @@ function render(preserveScroll = false): void {
       default: html = dashboardView();
     }
     view.innerHTML = html;
+    // Entrance animation replays only on navigation (preserveScroll=false);
+    // SSE-driven render(true) refreshes must not re-trigger it every tick.
+    view.classList.toggle('enter', !preserveScroll);
   }
   view.classList.toggle('map-mode', state.view === 'map');
   const title = document.getElementById('pageTitle');

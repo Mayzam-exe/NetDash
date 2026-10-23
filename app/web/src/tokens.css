@@ -345,21 +345,162 @@ h2, h3, h4 {
 }
 
 /* =========================================================================
-   Entrance — replays only on navigation (render() rebuilds the view;
-   the live stream updates IDs in place, so no per-poll strobe).
+   Entrance — main.ts tags the view with .enter only on navigation renders;
+   SSE refreshes rebuild innerHTML without it, so no per-tick replay.
    Global reduced-motion kill in style.css already covers this.
    ========================================================================= */
 @keyframes hud-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
-.dash .kpi { animation: hud-in var(--dur-slow) var(--ease-out) both; }
-.dash .kpi:nth-child(2) { animation-delay: 60ms; }
-.dash .kpi:nth-child(3) { animation-delay: 120ms; }
-.dash .kpi:nth-child(4) { animation-delay: 180ms; }
-.dash .kpi:nth-child(5) { animation-delay: 240ms; }
-.dash .scope { animation: hud-in var(--dur-slow) var(--ease-out) 300ms both; }
-.dash .dash-body { animation: hud-in var(--dur-slow) var(--ease-out) 360ms both; }
+.view.enter .dash .kpi { animation: hud-in var(--dur-slow) var(--ease-out) both; }
+.view.enter .dash .kpi:nth-child(2) { animation-delay: 60ms; }
+.view.enter .dash .kpi:nth-child(3) { animation-delay: 120ms; }
+.view.enter .dash .kpi:nth-child(4) { animation-delay: 180ms; }
+.view.enter .dash .kpi:nth-child(5) { animation-delay: 240ms; }
+.view.enter .dash .deck { animation: hud-in var(--dur-slow) var(--ease-out) 300ms both; }
+.view.enter .dash .agent { animation: hud-in var(--dur-slow) var(--ease-out) both; }
+.view.enter .dash .agent:nth-child(2) { animation-delay: 45ms; }
+.view.enter .dash .agent:nth-child(3) { animation-delay: 90ms; }
+.view.enter .dash .agent:nth-child(4) { animation-delay: 135ms; }
+.view.enter .dash .agent:nth-child(5) { animation-delay: 180ms; }
+.view.enter .dash .agent:nth-child(6) { animation-delay: 225ms; }
+.view.enter .dash .scope { animation: hud-in var(--dur-slow) var(--ease-out) 380ms both; }
+.view.enter .dash .dash-body { animation: hud-in var(--dur-slow) var(--ease-out) 440ms both; }
+
+/* =========================================================================
+   Agent deck — the2D crew: each device is an operative with a state visor
+   and an HP bar (eth = full, wifi maps dBm → quality).
+   ========================================================================= */
+.deck { flex: none; }
+.deck-lock {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  color: var(--crimson);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--crimson) 50%, transparent);
+}
+.deck-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.agent {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 104px;
+  max-width: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel2);
+  color: var(--text);
+  text-align: center;
+  transition: border-color var(--dur-fast), transform var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+.agent:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+.op-fig {
+  width: 44px;
+  height: 44px;
+  color: var(--muted);
+}
+.op-fig svg { width: 100%; height: 100%; display: block; }
+.agent.st-online .op-fig {
+  color: var(--green);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--green) 45%, transparent));
+}
+.agent.st-online .op-fig .antenna {
+  animation: ant 2s ease-in-out infinite;
+  transform-origin: 24px 9px;
+}
+@keyframes ant {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.agent.st-warning .op-fig {
+  color: var(--amber);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--amber) 45%, transparent));
+}
+.agent.st-warning .op-fig .visor {
+  animation: ant 1.1s steps(2, jump-none) infinite;
+}
+.agent.st-blocked {
+  border-color: color-mix(in srgb, var(--crimson) 55%, var(--border));
+}
+.agent.st-blocked .op-fig {
+  color: var(--crimson);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--crimson) 45%, transparent));
+}
+/* blocked: visor is slashed, antenna dark — cut off, not merely off */
+.agent.st-blocked .op-fig .antenna { opacity: 0.15; }
+.agent.st-offline { opacity: 0.55; }
+.op-chips {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  gap: 3px;
+}
+.op-chip {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--border);
+  color: var(--muted);
+}
+.op-chip.you {
+  background: var(--accent);
+  color: var(--on-acc);
+}
+.op-name {
+  font-size: 11.5px;
+  font-weight: 650;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.op-hp {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.op-hp i {
+  display: block;
+  height: 100%;
+  background: var(--muted);
+  border-radius: 2px;
+}
+.agent.st-online .op-hp i { background: var(--green); }
+.agent.st-warning .op-hp i { background: var(--amber); }
+.agent.st-blocked .op-hp i { background: var(--crimson); }
+.op-state {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.agent.st-online .op-state { color: var(--green); }
+.agent.st-warning .op-state { color: var(--amber); }
+.agent.st-blocked .op-state { color: var(--crimson); }
 
 /* =========================================================================
    Skip link + mobile tier (bottom bar ≤5 items, 44px touch targets)
