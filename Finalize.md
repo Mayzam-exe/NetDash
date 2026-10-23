@@ -109,6 +109,8 @@ app/web:  npx tsc --noEmit && npm run build   # vite → dist
 | 12 | `8e91d51` **deckified + slim dashboard** | The loud pass (deep-dive below) **and** dashboard surgery: the Devices and Alerts docks removed. |
 | 13 | `4c7246a` chore | Tracked UI bundle re-synced (dist is committed alongside source). |
 | 14 | `1d221ce` **Clear all alerts** | End-to-end alert wipe (deep-dive below). |
+| 15 | `c9ecbdf` **Timed block** | Block with expiry: `block_until` column, `{blocked:true, blockUntil:N}` patch semantics, 30 s reaper inside the schedule loop, dossier `1h/4h/12h` chips and a `releases HH:MM` chip. |
+| 16 | `ffa3551` **DHCP hostnames + gateway probe** | Passive DHCP sniffer (any router, live hostnames → name fill + Intel) and the honest SNMP capability probe that decides whether a per-client Signal column can ever be shown (deep-dive below). |
 
 ---
 
@@ -203,6 +205,40 @@ full table lives on `/devices`, the log on `/alerts`. Dashboard now reads
 `dash-body` entrance rule, `.alert-item` rails, and the legacy `alerts.ts`
 module lost its last importer (tree-shaken to zero bytes).
 
+### 4.5 DHCP hostnames + the honest gateway probe
+
+The user picked **Wi-Fi signal / DHCP** next, under the project's honesty
+rule (never render a metric the engine can't truly know) — so it shipped
+probe-first.
+
+**Passive DHCP sniffer** (`internal/dhcp`): a receive-only AF_PACKET socket
+on the LAN interface (same proven pattern as the ARP blocker's
+`socket_linux.go`, 500 ms recv timeout so the loop keeps checking its stop
+flag) parses every DHCP DISCOVER/REQUEST/ACK broadcast — Ethernet (+ one
+802.1Q tag) → IPv4 → UDP 67/68 → BOOTP + options (53 message type, 12 host
+name, 50 requested IP). Broadcasts are flooded to every switch port, so
+client *joins* are always visible without promiscuous mode; unicast renewals
+are simply missed (PTR/mDNS still cover those). `observeDHCP` matches the
+frame's `chaddr` to a device **by MAC**: a hostname fills a placeholder name
+(`""` or `"Device <ip>"`) under the same policy as `resolveNameAsync`,
+re-infers kind unless manually pinned, and lands in the Intel tab as kind
+`dhcp` — a user-set name always wins. Proven live end-to-end: a crafted
+DISCOVER (MAC `f2:f5:b7:63:31:91`, hostname `sniff-test-handset`) renamed
+offline device 3065 and wrote the intel row within one poll tick; the name
+was then restored.
+
+**SNMP gateway probe** (`snmp.Probe` → `engine.ProbeRouter` →
+`POST /api/gateway/probe`, "Probe router" button in Settings → Monitoring):
+one click reports what the router actually exposes — sysName/sysDescr, the
+interface list, and a best-effort walk over vendor station-signal MIB
+candidates (MikroTik, UniFi, Huawei AC, IEEE 802.11 presence checks).
+`reachable` is true only when an agent genuinely answered; a silent host or
+wrong community reports `no SNMP response — wrong community, wrong host, or
+agent disabled` (UDP "connect" alone proves nothing — first cut got that
+wrong and was fixed before ship). The probe's answer is the gate for a
+per-client Signal column: until a router exposes station RSSI, Signal stays
+unset.
+
 ---
 
 ## 5. Everything that was fixed
@@ -269,13 +305,19 @@ module lost its last importer (tree-shaken to zero bytes).
    frontier).
 7. **No UI login** — the backend stream is bearer-token protected but there is
    no login flow in the UI yet.
+8. **Station RSSI is detectable, not consumed** — the gateway probe reports
+   whether the router exposes a station-signal MIB, but nothing maps its
+   values to per-device `Signal` yet; that plumbing lands when a router in
+   the wild actually answers (`snmp.rssiCandidates` holds the best-effort
+   candidate list).
 
 ## 8. Next up (feature queue, in the user's order)
 
-1. **Per-client Wi-Fi signal** — `Signal` is only ever set for this machine
-   (`engine.go:494`); needs an SNMP/AP or `iw` source for real client RSSI.
-2. **Real DHCP lease data** — no lease source is read anywhere (leases file /
-   dnsmasq/NetworkManager import).
+1. ~~Per-client Wi-Fi signal~~ — shipped probe-first (`ffa3551`): the gateway
+   probe reports whether the router exposes a station-signal MIB; Signal
+   stays honest (unset) until one does, then map values → `Device.Signal`.
+2. ~~Real DHCP lease data~~ — shipped (`ffa3551`): passive DHCP sniffer —
+   live hostnames from broadcasts, no lease-file dependency, any router.
 3. **Real link speed/duplex** — currently not read from the NIC.
 4. **UI login flow** — wire the existing backend bearer auth to a login screen.
 5. Optional polish: stretch the bandwidth scope into the dashboard's bottom
