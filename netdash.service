@@ -10,5 +10,3 @@ ExecStart=/usr/local/lib/netdash/netdash -addr 127.0.0.1:7420 -data /run/media/m
 Restart=on-failure
 RestartSec=3
 
-[Install]
-WantedBy=default.target

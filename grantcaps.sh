@@ -42,8 +42,45 @@ RUNDIR=/run/user/$(id -u "$U")
 
 install -d -o root -g root -m 0755 "$DESTDIR"
 install -o root -g root -m 0755 "$SRC" "$DEST"
+# netdash's own grant. The ARP bridge opens raw sockets in-process (raw), and
+# the link work -- setting the MTU, bouncing the radio -- changes interface
+# state in-process (admin). Both run as ordinary syscalls, where the
+# capability this process holds applies directly.
 /usr/sbin/setcap cap_net_raw,cap_net_admin+ep "$DEST" || exit 1
 /usr/sbin/setcap cap_net_raw+ep /usr/sbin/tcpdump || exit 1
+
+# The helper gets a grant of its own, because netdash's does not reach it.
+# File capabilities are applied by execve to the file being executed and are
+# not inherited: running /usr/bin/nft starts nft with an empty set, so every
+# firewall call from the service fails with the kernel's
+# bare "Operation not permitted" -- while in-process raw sockets keep working,
+# which is what hides the cause. Two escapes exist and neither is available
+# here: raising the ambient set needs CAP_SETPCAP, which this kernel refuses
+# even for a process holding every capability, and systemd --user holds no
+# privilege to do it on the service's behalf (the unit exits 218/CAPABILITIES).
+# A file capability, by contrast, needs no privilege at run time: it applies to
+# whatever file is executed, so an unprivileged parent can spawn a helper that
+# carries its own cap_net_admin. So install that copy here.
+HELPERS="$DESTDIR/helpers"
+install -d -o root -g root -m 0755 "$HELPERS"
+#
+# ip(8) is deliberately not installed here: it does not retain a file
+# capability on exec (CapPrm reads zero after exec even with a correct xattr,
+# while nft keeps its grant), so a capped copy would be a grant that does
+# nothing. tc(8) is no longer installed: the traffic-shaping feature that
+# needed it was removed. Drop anything a previous install put here that this
+# set no longer includes, so a helper cannot linger as an executable that
+# looks authoritative.
+rm -f "$HELPERS/ip" "$HELPERS/tc"
+for TOOL in nft; do
+  if ! SRC_TOOL=$(command -v "$TOOL"); then
+    # Not installed: leave no copy of a helper that is gone.
+    rm -f "$HELPERS/$TOOL"
+    continue
+  fi
+  install -o root -g root -m 0755 "$SRC_TOOL" "$HELPERS/$TOOL" || exit 1
+  /usr/sbin/setcap cap_net_admin=ep "$HELPERS/$TOOL" || exit 1
+done
 
 # The project copy must not keep a grant: it sits on a nosuid mount where the
 # capabilities do nothing, and it is user-writable, so a stale grant there would

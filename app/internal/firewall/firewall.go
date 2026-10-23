@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+
+	"netdash/internal/helper"
 )
 
 // Entry is one host that must not reach the internet.
@@ -28,10 +30,13 @@ type Entry struct {
 func Capable() (bool, string) {
 	switch runtime.GOOS {
 	case "linux":
-		if _, err := exec.LookPath("nft"); err != nil {
-			return false, "nft not found"
+		// Authority first: the live probe below would also refuse, but only
+		// with the kernel's bare "Operation not permitted", which names no
+		// fix. This names it.
+		if ok, why := helper.Capable("nft"); !ok {
+			return false, why
 		}
-		if out, err := exec.Command("nft", "list", "tables").CombinedOutput(); err != nil {
+		if out, err := exec.Command(helper.Path("nft"), "list", "tables").CombinedOutput(); err != nil {
 			msg := strings.TrimSpace(string(out))
 			if msg == "" {
 				msg = err.Error()
@@ -72,7 +77,7 @@ func Apply(blocked, meter []Entry, stale []string) error {
 // callers must know it resets counters.
 func applyNft(blocked, meter []Entry) error {
 	// Drop the previous table (ignore: it may not exist).
-	_ = exec.Command("nft", "delete", "table", "inet", "netdash").Run()
+	_ = exec.Command(helper.Path("nft"), "delete", "table", "inet", "netdash").Run()
 	if len(blocked) == 0 && len(meter) == 0 {
 		return nil
 	}
@@ -101,7 +106,7 @@ func applyNft(blocked, meter []Entry) error {
 		}
 	}
 	b.WriteString("\t}\n}\n")
-	cmd := exec.Command("nft", "-f", "-")
+	cmd := exec.Command(helper.Path("nft"), "-f", "-")
 	cmd.Stdin = strings.NewReader(b.String())
 	if out, err := cmd.CombinedOutput(); err != nil {
 		msg := strings.TrimSpace(string(out))
@@ -119,7 +124,7 @@ func ReadCounters() (map[string]uint64, error) {
 	if runtime.GOOS != "linux" {
 		return nil, fmt.Errorf("counter reading requires Linux nftables")
 	}
-	cmd := exec.Command("nft", "--json", "list", "table", "inet", "netdash")
+	cmd := exec.Command(helper.Path("nft"), "--json", "list", "table", "inet", "netdash")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("nft list: %v", err)

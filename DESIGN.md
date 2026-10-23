@@ -113,7 +113,7 @@ Four tabs:
 |---|---|
 | **Overview** | Identity (vendor, MAC, DHCP lease, hostname), connection details (SSID/channel/band or switch port), quick facts grid, last-seen |
 | **Performance** | Big-number KPIs (current ↓/↑, avg, peak 24h, signal history), live per-device bandwidth chart, signal-over-time chart |
-| **Settings** | Device-specific config: rename, static IP / DHCP reservation toggle, block internet, schedule access, QoS priority, parental controls |
+| **Settings** | Device-specific config: rename, static IP / DHCP reservation toggle, block internet, schedule access, priority, parental controls |
 | **Troubleshoot** | Action toolkit: Ping, Traceroute, DNS lookup, Renew DHCP, Restart radio, connection history timeline. Results render in a terminal-style output pane |
 
 ### 2.8 Settings interface (global, L3)
@@ -195,7 +195,7 @@ Equivalent entry point: hover a table row → `⋯` → Troubleshoot.
 
 ### Confirmation rules
 - **Confirmed:** Block device, Forget device, Restart radio, Reboot router, Factory reset.
-- **Not confirmed:** rename, IP reservation toggle, QoS priority, channel change (auto-applies, shows toast).
+- **Not confirmed:** rename, IP reservation toggle, priority, channel change (auto-applies, shows toast).
 
 ---
 
@@ -297,7 +297,7 @@ TAB: Settings  —  Device name [Living Room TV____]  [Save]
                   Static IP [192.168.1.42]
                   Internet access  [Allowed ▾]     ← block/pause
                   Active hours    [07:00 ──────── 23:00]
-                  QoS priority    [ ▾ High ]
+                  Priority         [ ▾ High ]
 
 TAB: Troubleshoot — [Ping] [Traceroute] [DNS lookup] [Renew DHCP] [Restart radio]
                     ┌─ terminal ──────────────────────────────────────┐

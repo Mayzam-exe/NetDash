@@ -401,7 +401,7 @@ function tabDeviceSettings(d: Device): string {
       '<span style="color:var(--muted)">─</span>' +
       '<input class="inp mono" id="dnTo" value="' + esc(to) + '" placeholder="23:00" style="width:90px"></div>',
       'Internet allowed only inside this window — leave both empty for always allowed') +
-    row('QoS priority',
+    row('Priority',
       '<select class="inp" id="dnPriority">' +
       ['low', 'normal', 'high']
         .map(
@@ -411,7 +411,8 @@ function tabDeviceSettings(d: Device): string {
         )
         .join('') +
       '</select>',
-      'Stored and shown for reference — NetDash does not prioritise bandwidth (no QoS enforcement)')
+      'Stored and shown for reference — NetDash cannot shape another device\u2019s traffic ' +
+      'from here, so this does not change bandwidth.')
   );
 }
 

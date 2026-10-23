@@ -53,8 +53,9 @@ no Node runtime, no cloud, no external services.
 - **Device actions** — block/allow, forget (10-minute rediscovery grace),
   real ICMP ping from the server, name/priority/reservation settings.
   Priority and reservations are stored and displayed for reference only:
-  NetDash does not enforce QoS and does not create DHCP reservations on your
-  router (a reservation just keeps the device from being expired).
+  NetDash does not shape other devices' bandwidth and does not create DHCP
+  reservations on your router (a reservation just keeps the device from
+  being expired).
 - **Troubleshoot** — per-device diagnostics that run for real from the
   server: 4-probe ping, TTL-walk traceroute (system ping, no traceroute
   binary needed), PTR + forward DNS lookup with mDNS fallback, and — for
