@@ -7,6 +7,7 @@ import type {
   History,
   Intel,
   PingResult,
+  ProbeReport,
   ScanResult,
   Settings,
   SpoofRule,
@@ -157,6 +158,16 @@ export function ackAlert(id: number): Promise<{ ok: boolean }> {
 
 export function clearAlerts(): Promise<{ ok: boolean }> {
   return send<{ ok: boolean }>('/api/alerts/clear', 'POST', {});
+}
+
+export function probeRouter(
+  host: string,
+  community: string,
+): Promise<ProbeReport> {
+  return send<ProbeReport>('/api/gateway/probe', 'POST', {
+    host: host,
+    community: community,
+  });
 }
 
 export function openStream(

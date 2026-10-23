@@ -160,6 +160,15 @@ export interface SpoofRule {
   ip: string;
 }
 
+export interface ProbeReport {
+  reachable: boolean;
+  sysName: string;
+  sysDescr: string;
+  ifaces: string[];
+  rssiMib: string; // station-signal MIB label; '' = not exposed by the router
+  error: string;
+}
+
 export interface Settings {
   ssid24: string;
   ssid5: string;

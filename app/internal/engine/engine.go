@@ -298,6 +298,7 @@ func (e *Engine) Run(ctx context.Context) {
 	go e.snmpLoop(ctx)
 	go e.scheduleLoop(ctx)
 	go e.meterLoop(ctx)
+	go e.dhcpSniffLoop(ctx)
 	go func() {
 		if err := mdns.Start(ctx, e.mdnsName); err != nil && ctx.Err() == nil {
 			log.Printf("mdns: %v", err)

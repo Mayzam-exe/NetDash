@@ -1,6 +1,7 @@
 package snmp
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -387,4 +388,72 @@ func firstNonEmpty(a, b string) string {
 		return a
 	}
 	return b
+}
+
+// ProbeReport describes what a router answers over SNMP. It is the honest
+// capability check behind the Signal column: per-station Wi-Fi signal is only
+// reportable when the router exposes a station-signal MIB, and most consumer
+// gear does not.
+type ProbeReport struct {
+	Reachable bool     `json:"reachable"`
+	SysName   string   `json:"sysName"`
+	SysDescr  string   `json:"sysDescr"`
+	Ifaces    []string `json:"ifaces"`
+	RSSIMib   string   `json:"rssiMib"` // label of the station-signal tree that answered; "" = not exposed
+	Error     string   `json:"error"`
+}
+
+// errStop ends a presence walk after the first answered instance.
+var errStop = errors.New("presence confirmed")
+
+// rssiCandidates are vendor station-signal subtrees worth probing. Each costs
+// at most one request; an absent tree simply reports "not exposed".
+var rssiCandidates = []struct{ OID, Label string }{
+	{"1.3.6.1.4.1.14988.1.1.1.2.1.1", "MikroTik wireless station table"},
+	{"1.3.6.1.4.1.41112.2.1", "UniFi station table"},
+	{"1.3.6.1.4.1.2011.6.130.1", "Huawei AC station table"},
+	{"1.3.6.1.2.1.105.1.1", "IEEE 802.11 station table"},
+}
+
+// Probe checks what the router exposes: identity, interfaces, and any
+// per-station Wi-Fi signal tree. Reachable reflects an actual agent answer —
+// a silent host or wrong community reports an error instead.
+func Probe(cfg Config) (ProbeReport, error) {
+	g, err := connect(cfg)
+	if err != nil {
+		return ProbeReport{}, err
+	}
+	defer g.Conn.Close()
+
+	rep := ProbeReport{}
+	if res, err := g.Get([]string{"1.3.6.1.2.1.1.1.0", "1.3.6.1.2.1.1.5.0"}); err == nil {
+		for _, v := range res.Variables {
+			switch normName(v.Name) {
+			case "1.3.6.1.2.1.1.1.0":
+				rep.SysDescr = pduString(v.Value)
+			case "1.3.6.1.2.1.1.5.0":
+				rep.SysName = pduString(v.Value)
+			}
+		}
+	}
+	_ = g.Walk("1.3.6.1.2.1.2.2.1.2", func(pdu gosnmp.SnmpPDU) error {
+		rep.Ifaces = append(rep.Ifaces, pduString(pdu.Value))
+		return nil
+	})
+	if rep.SysDescr == "" && rep.SysName == "" && len(rep.Ifaces) == 0 {
+		return ProbeReport{Error: "no SNMP response — wrong community, wrong host, or agent disabled"}, nil
+	}
+	rep.Reachable = true
+	for _, c := range rssiCandidates {
+		found := false
+		_ = g.Walk(c.OID, func(gosnmp.SnmpPDU) error {
+			found = true
+			return errStop
+		})
+		if found {
+			rep.RSSIMib = c.Label
+			break
+		}
+	}
+	return rep, nil
 }

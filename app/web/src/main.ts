@@ -13,6 +13,7 @@ import {
   listSpoof,
   openStream,
   postDevice,
+  probeRouter,
   putSettings,
 } from './api';
 import { refreshCharts } from './lib/charts';
@@ -43,7 +44,7 @@ import { dashboardView } from './views/dashboard';
 import { deviceView, mergeDevice, restoreScan, runDiag, saveDevice } from './views/device';
 import { devicesView } from './views/devices';
 import { atlasHud, mapView } from './views/map';
-import { discardSettings, saveSettings, setLockdown, settingsView } from './views/settings';
+import { discardSettings, saveSettings, setLockdown, setProbeText, settingsView } from './views/settings';
 import { h, render as renderPreact } from 'preact';
 import { AlertsApp } from './views/alerts.app';
 import { alertFilterSig, syncSignals, uiTick } from './signals';
@@ -647,6 +648,31 @@ async function handleClick(e: MouseEvent): Promise<void> {
       await saveSettings();
       render();
       break;
+    case 'probe-router': {
+      const host =
+        (document.getElementById('gSnmpHost') as HTMLInputElement | null)?.value.trim() ?? '';
+      const community =
+        (document.getElementById('gSnmpCommunity') as HTMLInputElement | null)?.value.trim() ?? '';
+      setProbeText('probing…');
+      render();
+      try {
+        const r = await probeRouter(host, community);
+        setProbeText(
+          !r.reachable
+            ? 'unreachable' + (r.error ? ' — ' + r.error : '')
+            : (r.sysName || 'router') +
+                (r.sysDescr ? ' — ' + r.sysDescr : '') +
+                ' — ' +
+                r.ifaces.length +
+                ' interfaces — station signal: ' +
+                (r.rssiMib || 'not exposed, Signal column stays honest'),
+        );
+      } catch {
+        setProbeText('probe failed');
+      }
+      render();
+      break;
+    }
     case 'toggle-lockdown': {
       // Applied straight away — see setLockdown().
       const box = el as HTMLInputElement;

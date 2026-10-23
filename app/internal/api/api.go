@@ -47,6 +47,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/alerts", s.handleAlerts)
 	mux.HandleFunc("POST /api/alerts/{id}/ack", s.handleAck)
 	mux.HandleFunc("POST /api/alerts/clear", s.handleClearAlerts)
+	mux.HandleFunc("POST /api/gateway/probe", s.handleGatewayProbe)
 	mux.HandleFunc("GET /api/history", s.handleHistory)
 	mux.HandleFunc("GET /api/devices/{id}/intel", s.handleDeviceIntel)
 	mux.HandleFunc("GET /api/spoof-rules", s.handleSpoofList)
@@ -395,6 +396,18 @@ func (s *Server) handleClearAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// handleGatewayProbe probes the router over SNMP and reports what it exposes —
+// identity, interfaces, and any per-station Wi-Fi signal tree. Body fields
+// (from the unsaved Settings inputs) override the saved SNMP settings.
+func (s *Server) handleGatewayProbe(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Host      string `json:"host"`
+		Community string `json:"community"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body) // empty body is fine
+	writeJSON(w, http.StatusOK, s.e.ProbeRouter(body.Host, body.Community))
 }
 
 func (s *Server) handleDeviceIntel(w http.ResponseWriter, r *http.Request) {

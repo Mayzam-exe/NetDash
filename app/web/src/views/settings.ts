@@ -187,6 +187,12 @@ export function settingsView(): string {
         'SNMPv2c community string — keep it non-default') +
       row('WAN interface', txt('gSnmpWanIf', s.snmpWanIf, true),
         'Substring of the interface name, e.g. wan0 — empty = auto-detect') +
+      '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+      '<button class="btn" data-action="probe-router">Probe router</button>' +
+      (probeText
+        ? '<span class="mono" style="font-size:12px;color:var(--muted)">' + esc(probeText) + '</span>'
+        : '') +
+      '</div>' +
       '<div style="margin-top:8px;padding-top:10px;border-top:1px solid rgba(128,128,128,.18)">' +
       cap('Network path',
         status?.path === 'gateway'
@@ -255,6 +261,12 @@ export function settingsView(): string {
     '<button class="btn danger" data-action="factory-reset">Factory reset</button>' +
     '</div></div></section>'
   );
+}
+
+/** Last router-probe readout, kept across view re-renders. */
+let probeText = '';
+export function setProbeText(t: string): void {
+  probeText = t;
 }
 
 /** Read the settings form into memory (API fields + client-only prefs). */
