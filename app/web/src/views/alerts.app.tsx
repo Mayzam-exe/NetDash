@@ -54,7 +54,7 @@ export function AlertsApp() {
     <>
       <div
         class="card table-toolbar"
-        style="margin-bottom:14px;border-radius:12px;border-bottom:1px solid var(--border)"
+        style="margin-bottom:14px"
         data-tick={snapshotTick.value + uiTick.value}
       >
         <Eyebrow>Filter</Eyebrow>

@@ -38,7 +38,7 @@
   --hover: #182440;
   --border: #1f2d4a;
   --border-gold: rgba(102, 165, 255, 0.22);  /* panel bezel hairline */
-  --grid: rgba(103, 178, 255, 0.05);         /* bg texture + chart gridlines */
+  --grid: rgba(103, 178, 255, 0.09);         /* bg texture + chart gridlines */
 
   /* text — cool white, never pure white */
   --text: #e2e9f9;
@@ -81,7 +81,7 @@
   --hover: #e9eef8;
   --border: #d4ddef;
   --border-gold: rgba(37, 99, 235, 0.28);
-  --grid: rgba(37, 99, 235, 0.06);
+  --grid: rgba(37, 99, 235, 0.09);
 
   --text: #0e1a30;
   --muted: #56678a;
@@ -115,7 +115,7 @@ body {
   background-image:
     linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 44px 44px;
+  background-size: 40px 40px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -366,7 +366,6 @@ h2, h3, h4 {
 .view.enter .dash .agent:nth-child(5) { animation-delay: 180ms; }
 .view.enter .dash .agent:nth-child(6) { animation-delay: 225ms; }
 .view.enter .dash .scope { animation: hud-in var(--dur-slow) var(--ease-out) 380ms both; }
-.view.enter .dash .dash-body { animation: hud-in var(--dur-slow) var(--ease-out) 440ms both; }
 
 /* =========================================================================
    Agent deck — the2D crew: each device is an operative with a state visor
@@ -703,30 +702,16 @@ textarea {
 .alert-row.info {
   box-shadow: inset 3px 0 0 var(--blue), inset 0 1px 0 var(--border-gold);
 }
-.alert-item.critical { box-shadow: inset 3px 0 0 var(--red); }
-.alert-item.warning { box-shadow: inset 3px 0 0 var(--amber); }
-.alert-item.info { box-shadow: inset 3px 0 0 var(--blue); }
-.alert-row.critical .sev,
-.alert-item.critical .sev {
+.alert-row.critical .sev {
   box-shadow: 0 0 8px color-mix(in srgb, var(--red) 75%, transparent);
 }
-.alert-row.warning .sev,
-.alert-item.warning .sev {
+.alert-row.warning .sev {
   box-shadow: 0 0 8px color-mix(in srgb, var(--amber) 75%, transparent);
 }
-.alert-row.info .sev,
-.alert-item.info .sev {
+.alert-row.info .sev {
   box-shadow: 0 0 8px color-mix(in srgb, var(--blue) 75%, transparent);
 }
 
-/* ---- terminal: scanlines ---- */
-.term {
-  background-image: repeating-linear-gradient(
-    0deg,
-    rgba(255, 255, 255, 0.03) 0 1px,
-    transparent 1px 3px
-  );
-}
 
 /* ---- toasts: console messages ---- */
 .toast {
@@ -747,9 +732,6 @@ textarea {
   text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 26%, transparent);
 }
 .kpi-big .unit { text-shadow: none; }
-.deck {
-  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
-}
 .deck .card-head .right {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -766,6 +748,140 @@ textarea {
 ::selection {
   background: color-mix(in srgb, var(--accent) 32%, transparent);
   color: var(--text);
+}
+
+/* =========================================================================
+   DECKIFIED PASS — the loud layer. Angular cut-corner plates, blue circuit
+   gutters, glowing frames and a CRT scanline veil over the entire app:
+   this is what reads as a 2D game deck at a glance, not as detail polish.
+   Geometry + paint only — no layout-affecting properties, no logic touched.
+   ========================================================================= */
+
+/* ---- angular silhouette: panels are cut plates, controls are square ---- */
+.card,
+.kpis,
+.tabs,
+.tab-body,
+.modal,
+.cmdk-box,
+.menu,
+.toast,
+.agent,
+.map-legend,
+.map-stats,
+.seg,
+.brand .logo {
+  border-radius: 0;
+}
+
+/* Cut corner, top-right — 16px, exactly matching the hero KPI notch.
+   Popovers are body-level (ui.ts openMenu), so nothing escapes a plate. */
+.card,
+.kpis,
+.tabs,
+.modal,
+.cmdk-box,
+.menu,
+.toast,
+.agent,
+.map-legend,
+.map-stats {
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+
+.btn,
+.icon-btn,
+.chip,
+.chipmini,
+.searchbtn,
+.pill,
+.truth-chip,
+.nbadge,
+.op-chip,
+.inp,
+select.inp,
+.search-input {
+  border-radius: 0;
+}
+
+/* ---- glowing frames ---- */
+/* Flush plates: bezel hairline + faint halo. Status shapes (dots, switch
+   knob) stay round — they carry meaning; panels are the only cut things. */
+.card,
+.agent {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  box-shadow:
+    inset 0 1px 0 var(--border-gold),
+    0 0 20px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+/* Floating overlays keep their elevation (component pass) — frame only. */
+.modal,
+.cmdk-box,
+.menu {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+/* Map HUD plates go solid: deck depth is fill + border + glow, not glass. */
+.map-legend,
+.map-stats {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  box-shadow:
+    var(--elev-2),
+    inset 0 1px 0 var(--border-gold),
+    0 0 20px color-mix(in srgb, var(--accent) 8%, transparent);
+  backdrop-filter: none;
+}
+.card-head {
+  border-bottom-color: color-mix(in srgb, var(--accent) 26%, var(--border));
+}
+.tbl td {
+  border-bottom-color: color-mix(in srgb, var(--accent) 16%, var(--border));
+}
+/* KPI strip: the 1px gutters between cells become blue circuit lines. */
+.kpis {
+  background: color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+/* ---- CRT veil: scanlines across the whole app (theme-aware) ---- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--text) 5%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+}
+
+/* ---- instrument silkscreen: every legend and label reads as panel print ---- */
+.tbl-foot {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.sum-card .lbl {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.map-legend h4 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.map-legend .hint {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+.map-stats .seg .sl {
+  text-transform: uppercase;
 }
 
 /* =========================================================================

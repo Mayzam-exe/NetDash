@@ -1,12 +1,9 @@
 import { counts, gatewayIp, hostDown, hostPeakDown, hostUp, latencyGateway, state, unreadAlerts } from '../state';
 import { esc, fmtM } from '../lib/ui';
-import { alertItemHtml } from './alerts';
 import { deckHtml } from './deck';
-import { legendHtml, tableHtml, toolbarHtml, filteredDevices } from './devices';
 
 export function dashboardView(): string {
   const c = counts();
-  const alerts = state.alerts.slice(0, 6);
   const seg = (inner: string, action?: string, href?: string) =>
     action
       ? '<button class="kpi clickable" data-action="' + action + '"' +
@@ -81,23 +78,6 @@ export function dashboardView(): string {
     '<span><i style="background:var(--blue)"></i>Upload</span>' +
     '<span class="chart-vals" id="bwMax"></span></div>' +
     '</section>' +
-    '<div class="dash-body">' +
-    '<section class="card table-card">' +
-    toolbarHtml('Devices', true) +
-    '<div class="tbl-scroll">' + tableHtml() + '</div>' +
-    '<div class="tbl-foot"><span id="tblCount">' + filteredDevices().length +
-    ' of ' + state.devices.length + ' devices</span>' + legendHtml() + '</div>' +
-    '</section>' +
-    '<div class="right-rail">' +
-    '<section class="card alerts-card">' +
-    '<div class="card-head"><span class="card-title">Alerts</span>' +
-    '<span class="right"><button class="chip" data-action="nav" data-href="#/alerts">' +
-    'View all</button></span></div>' +
-    '<div class="alert-list" id="alertList">' +
-    (alerts.length
-      ? alerts.map(alertItemHtml).join('')
-      : '<div class="empty">No alerts — the network is healthy.</div>') +
-    '</div></section>' +
-    '</div></div></div>'
+    '</div>'
   );
 }
