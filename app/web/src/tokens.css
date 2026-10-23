@@ -1,158 +1,121 @@
 /* =========================================================================
-   NetDash — Phase 0 design tokens ("Brass & Ember": maximalist classic dark)
+   NetDash — "NEON GRID" design tokens: cyber-indigo HUD.
    Imported AFTER style.css so these override the legacy palette in place.
-   No backdrop-filter / glass anywhere — depth is solid fill + border + shadow.
+   Every token name style.css / charts.ts / atlas.ts consume is preserved.
+   No backdrop-filter / glass anywhere — depth is fill + border + glow.
    ========================================================================= */
 
-:root,
-:root[data-theme="dark"] {
-  /* surfaces — warm ink, layered depth */
-  --bg: #0d0b09;
-  --panel: #17130f;
-  --panel2: #201a15;      /* raised */
-  --panel-raised: #201a15;
-  --panel-sunken: #120f0c;
-  --hover: #241d16;
-  --border: #3a312a;
-  --border-gold: #7a6437;  /* ornament hairline */
-  --grid: rgba(237, 230, 214, 0.06);
-
-  /* text — bone, never pure white */
-  --text: #ede6d6;
-  --muted: #a3987f;
-
-  /* accents: identity vs. state (never mixed) */
-  --brass: #c9a227;        /* identity: nav, focus, eyebrows, numerals */
-  --accent: #c9a227;       /* legacy alias used across the old CSS */
-  --on-acc: #17130f;       /* dark ink on brass */
-  --crimson: #c8413b;      /* destructive */
-  --verdigris: #2e9e8f;    /* data / links / chart */
-
-  /* status only */
-  --green: #5fbf7a;
-  --amber: #e0a526;
-  --red: #e05b4b;
-  --blue: #6ba8d6;
-  --green-a: rgba(95, 191, 122, 0.18);
-  --blue-a: rgba(107, 168, 214, 0.16);
-
-  /* terminal */
-  --term-bg: #0a0806;
-  --term-fg: #7ee0a3;
-
-  /* elevation — solid, layered (not glass) */
-  --shadow: 0 2px 0 rgba(0, 0, 0, 0.5), 0 10px 24px rgba(0, 0, 0, 0.45);
-  --elev-1: 0 1px 0 rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
-  --elev-2: 0 2px 0 rgba(0, 0, 0, 0.5), 0 10px 24px rgba(0, 0, 0, 0.45);
-  --elev-3: 0 3px 0 rgba(0, 0, 0, 0.5), 0 22px 48px rgba(0, 0, 0, 0.55);
-}
-
-:root[data-theme="light"] {
-  --bg: #f4efe6;          /* aged paper */
-  --panel: #fbf8f1;
-  --panel2: #ffffff;
-  --panel-raised: #ffffff;
-  --panel-sunken: #efe8db;
-  --hover: #f1eadd;
-  --border: #ded5c4;
-  --border-gold: #b69a5a;
-  --grid: rgba(28, 25, 23, 0.07);
-
-  --text: #1c1917;
-  --muted: #6e6455;
-
-  /* brass splits: --accent is used for small text/focus, so it must clear
-     4.5:1 on paper (#8A6D1B only reaches 4.3:1 → use #7A5F14 = 5.3:1).
-     --brass stays the brighter tone for rules, borders and large numerals. */
-  --brass: #8a6d1b;
-  --accent: #7a5f14;
-  --on-acc: #ffffff;
-  --crimson: #a32f2a;
-  --verdigris: #1f7a70;
-
-  --green: #2e7d4f;
-  --amber: #b87a12;
-  --red: #c0392b;
-  --blue: #1f6fa8;
-  --green-a: rgba(46, 125, 79, 0.14);
-  --blue-a: rgba(31, 111, 168, 0.12);
-
-  --term-bg: #14120e;
-  --term-fg: #7ee787;
-
-  --shadow: 0 2px 0 #fff, 0 10px 24px rgba(28, 25, 23, 0.14);
-  --elev-1: 0 1px 0 #fff, 0 2px 6px rgba(28, 25, 23, 0.1);
-  --elev-2: 0 2px 0 #fff, 0 10px 24px rgba(28, 25, 23, 0.14);
-  --elev-3: 0 3px 0 #fff, 0 22px 48px rgba(28, 25, 23, 0.18);
-}
-
-/* ---- typography: system trio (zero webfonts, CSP-safe) ---- */
+/* ---- theme-agnostic: type, space, motion (system trio, zero webfonts) ---- */
 :root {
-  --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia,
-    "Times New Roman", serif;
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Cantarell, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono",
     Menlo, Consolas, monospace;
 
   --text-xs: 12px;  --text-sm: 13.5px; --text-base: 15px;
   --text-lg: 20px;  --text-xl: 26px;   --text-2xl: 34px; --text-3xl: 46px;
-  --tracking-eyebrow: 0.14em;
+  --tracking-eyebrow: 0.12em;
 
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
   --space-5: 24px; --space-6: 32px; --space-7: 40px; --space-8: 56px;
 
-  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 20px;
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px;
 
   --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 320ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);   /* arriving */
   --ease-in: cubic-bezier(0.7, 0, 0.84, 0);    /* leaving */
 }
 
-/* =========================================================================
-   Maximalist layer — ornament with a budget (density tiers: L0 ornate,
-   tables/charts plain; ornament never sits behind data text).
-   ========================================================================= */
+/* ---- dark (primary): the console at night ---- */
+:root,
+:root[data-theme="dark"] {
+  /* surfaces — deep indigo-black, layered depth */
+  --bg: #070b14;
+  --panel: #0d1424;
+  --panel2: #121c33;
+  --panel-raised: #16213b;
+  --panel-sunken: #05080f;
+  --hover: #182440;
+  --border: #1f2d4a;
+  --border-gold: rgba(102, 165, 255, 0.22);  /* panel bezel hairline */
+  --grid: rgba(103, 178, 255, 0.05);         /* bg texture + chart gridlines */
 
-/* Display serif carries the "classic" signal on titles and section heads. */
-.topbar h1,
-.card-title,
-h2,
-h3,
-h4 {
-  font-family: var(--font-display);
-  letter-spacing: -0.01em;
+  /* text — cool white, never pure white */
+  --text: #e2e9f9;
+  --muted: #8fa0c2;
+
+  /* identity vs. state (never mixed):
+     accent = interactive chrome; amber = warning state only */
+  --accent: #4f8cff;        /* buttons, active nav, focus, hero edge */
+  --brass: #4f8cff;         /* legacy alias: focus ring, skip-link, chips */
+  --on-acc: #ffffff;
+  --crimson: #ff4d5e;       /* destructive / lockdown */
+  --verdigris: #22d3ee;     /* truth-chip enforced / intel */
+
+  /* status only */
+  --green: #34d399;
+  --amber: #ffb020;
+  --red: #ff5c7a;
+  --blue: #38bdf8;          /* upload / info series */
+  --green-a: rgba(52, 211, 153, 0.16);
+  --blue-a: rgba(56, 189, 248, 0.14);
+
+  /* terminal — neon green on void */
+  --term-bg: #050a12;
+  --term-fg: #5ef0a5;
+
+  /* elevation — solid + drop, cool-tinted */
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.55), 0 10px 26px rgba(2, 6, 18, 0.5);
+  --elev-1: 0 1px 0 rgba(0, 0, 0, 0.55), 0 2px 6px rgba(2, 6, 18, 0.4);
+  --elev-2: 0 1px 0 rgba(0, 0, 0, 0.55), 0 10px 26px rgba(2, 6, 18, 0.5);
+  --elev-3: 0 1px 0 rgba(0, 0, 0, 0.55), 0 22px 48px rgba(2, 6, 18, 0.6);
 }
 
-/* Letterspaced small-caps eyebrow — the signature section header. */
-.kpi-label,
-.card .desc,
-.flabel {
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
-  font-size: 10.5px;
-  font-weight: 700;
+/* ---- light: day shift (same system, lit) ---- */
+:root[data-theme="light"] {
+  --bg: #eef2f8;
+  --panel: #ffffff;
+  --panel2: #f4f7fc;
+  --panel-raised: #ffffff;
+  --panel-sunken: #e8edf6;
+  --hover: #e9eef8;
+  --border: #d4ddef;
+  --border-gold: rgba(37, 99, 235, 0.28);
+  --grid: rgba(37, 99, 235, 0.06);
+
+  --text: #0e1a30;
+  --muted: #56678a;
+
+  --accent: #2563eb;
+  --brass: #2563eb;
+  --on-acc: #ffffff;
+  --crimson: #be123c;
+  --verdigris: #0891b2;
+
+  --green: #059669;
+  --amber: #b45309;
+  --red: #dc2626;
+  --blue: #0284c7;
+  --green-a: rgba(5, 150, 105, 0.14);
+  --blue-a: rgba(2, 132, 199, 0.12);
+
+  --term-bg: #0b1220;
+  --term-fg: #7ee787;
+
+  --shadow: 0 1px 0 #ffffff, 0 10px 24px rgba(14, 26, 48, 0.12);
+  --elev-1: 0 1px 0 #ffffff, 0 2px 6px rgba(14, 26, 48, 0.1);
+  --elev-2: 0 1px 0 #ffffff, 0 10px 24px rgba(14, 26, 48, 0.12);
+  --elev-3: 0 1px 0 #ffffff, 0 22px 48px rgba(14, 26, 48, 0.16);
 }
 
-/* Cards: raised solid fill + brass hairline top edge (double-rule look). */
-.card,
-.seg,
-.chipmini {
-  background: var(--panel);
-  box-shadow: inset 0 1px 0 var(--border-gold);
-}
-
-/* KPI numerals get the brass → bone gradient fill. */
-.kpi-big {
-  font-family: var(--font-display);
-  background: linear-gradient(180deg, var(--brass), var(--text));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* Focus ring retargeted to brass (was --accent == accent-blue before). */
-:focus-visible {
-  outline-color: var(--brass);
+/* faint blueprint grid on the page ground (texture lives in the margins —
+   panels sit on top of it, never behind data text) */
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 44px 44px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -164,12 +127,141 @@ h4 {
 }
 
 /* =========================================================================
-   Phase 1 component primitives
+   HUD layer — geometry, type treatment, signature details.
+   Ornament budget: grid texture + hero notch + square tags. That's it.
+   ========================================================================= */
+
+/* Panels: sharper corners than the legacy 10px (console bezels, not cards). */
+.card,
+.kpis,
+.tabs,
+.modal,
+.cmdk-box {
+  border-radius: var(--radius-md);
+}
+
+/* The hero KPI spans 2 tracks, so the desktop strip carries 6 tracks, not 5.
+   Scoped to ≥1151px so style.css's auto-fit tiers below that keep winning. */
+@media (min-width: 1151px) {
+  .kpis {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+.tabs { border-radius: var(--radius-md) var(--radius-md) 0 0; }
+.tab-body { border-radius: 0 0 var(--radius-md) var(--radius-md); }
+
+/* Titles: monospace uppercase — the HUD reads its chrome like an instrument. */
+.topbar h1 {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.card-title {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+
+/* Eyebrow micro-labels (KPI labels, form labels). */
+.kpi-label,
+.card .desc,
+.flabel {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Cards: blue bezel hairline on the top edge (screen-frame look). */
+.card,
+.seg,
+.chipmini {
+  background: var(--panel);
+  box-shadow: inset 0 1px 0 var(--border-gold);
+}
+
+/* Hero KPI (Internet): double-wide, notched corner, glowing readout. */
+.kpis > .kpi:first-child {
+  grid-column: span 2;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+.kpis > .kpi:first-child .kpi-big {
+  font-family: var(--font-mono);
+  font-weight: 750;
+  font-size: 27px;
+  letter-spacing: -0.03em;
+}
+.kpis > .kpi:first-child .kpi-big.text {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  text-shadow: 0 0 18px rgba(79, 140, 255, 0.45);
+}
+
+/* Focus ring: electric blue with a soft halo. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Tags, not pills — square reads instrument, round reads consumer app. */
+.chip,
+.chipmini,
+.truth-chip {
+  border-radius: var(--radius-sm);
+}
+.truth-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+/* Table headers: monospace column labels. */
+.tbl th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Status dots: glow carries state at a glance (shape still distinguishes:
+   warning = round+glow, offline = hollow, blocked = square). */
+.dot.warning {
+  box-shadow: 0 0 7px color-mix(in srgb, var(--amber) 55%, transparent);
+}
+.dot.blocked {
+  border-radius: 2px;
+}
+
+/* Bandwidth scope: the hero instrument gets a tinted bezel. */
+.scope {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+/* Lockdown stays a panic control: red, glowing, unmistakable. */
+.lockdown-badge {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--crimson) 55%, transparent);
+}
+
+/* =========================================================================
+   Phase 1 component primitives (status + honesty system)
    ========================================================================= */
 
 .eyebrow {
-  font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
@@ -207,8 +299,6 @@ h4 {
   align-items: center;
   gap: 6px;
   padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 11.5px;
   font-weight: 650;
   line-height: 1.35;
   border: 1px solid var(--border);
@@ -228,11 +318,11 @@ h4 {
   background: var(--verdigris);
 }
 .truth-chip.reference {
-  color: var(--brass);
-  border-color: color-mix(in srgb, var(--brass) 45%, var(--border));
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 .truth-chip.reference .tc-mark {
-  background: var(--brass);
+  background: var(--accent);
 }
 .truth-chip.unavailable {
   color: var(--muted);
@@ -255,11 +345,25 @@ h4 {
 }
 
 /* =========================================================================
-   Phase 4 — responsive + accessibility
-   Breakpoints: 375 · 768 · 1024 · 1440 (existing tiers cover 1150/860).
+   Entrance — replays only on navigation (render() rebuilds the view;
+   the live stream updates IDs in place, so no per-poll strobe).
+   Global reduced-motion kill in style.css already covers this.
    ========================================================================= */
+@keyframes hud-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.dash .kpi { animation: hud-in var(--dur-slow) var(--ease-out) both; }
+.dash .kpi:nth-child(2) { animation-delay: 60ms; }
+.dash .kpi:nth-child(3) { animation-delay: 120ms; }
+.dash .kpi:nth-child(4) { animation-delay: 180ms; }
+.dash .kpi:nth-child(5) { animation-delay: 240ms; }
+.dash .scope { animation: hud-in var(--dur-slow) var(--ease-out) 300ms both; }
+.dash .dash-body { animation: hud-in var(--dur-slow) var(--ease-out) 360ms both; }
 
-/* Skip link — first tab stop, revealed on focus. */
+/* =========================================================================
+   Skip link + mobile tier (bottom bar ≤5 items, 44px touch targets)
+   ========================================================================= */
 .skip-link {
   position: absolute;
   left: -9999px;
@@ -267,7 +371,7 @@ h4 {
   z-index: 200;
   background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--brass);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-md);
   padding: 10px 16px;
   font-weight: 650;
@@ -278,8 +382,6 @@ h4 {
   top: 12px;
 }
 
-/* Mobile tier (≤640): the 5-item rail becomes a bottom bar — within the
-   "bottom nav ≤ 5 items" rule; touch targets get the 44px minimum. */
 @media (max-width: 640px) {
   .app {
     grid-template-columns: 1fr;
@@ -316,7 +418,7 @@ h4 {
     display: block; /* re-shown: it was hidden by the 860px icon-rail tier */
   }
   .nav-item.active {
-    box-shadow: inset 0 2px 0 var(--brass);
+    box-shadow: inset 0 2px 0 var(--accent);
   }
   .nav-item svg {
     width: 20px;
