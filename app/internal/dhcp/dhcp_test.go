@@ -6,12 +6,12 @@ import "testing"
 // Checksums are left zero — Parse never validates them.
 func buildFrame(msgType byte, mac [6]byte, ciaddr, yiaddr, reqIP [4]byte, hostname string, taggedVLAN bool) []byte {
 	dhcp := make([]byte, 240)
-	dhcp[0] = 1                    // op = BOOTREQUEST (2 for ACK is not required by Parse)
-	dhcp[1] = 1                    // htype ethernet
-	dhcp[2] = 6                    // hlen
-	copy(dhcp[28:34], mac[:])      // chaddr
-	copy(dhcp[12:16], ciaddr[:])   // ciaddr
-	copy(dhcp[16:20], yiaddr[:])   // yiaddr
+	dhcp[0] = 1                  // op = BOOTREQUEST (2 for ACK is not required by Parse)
+	dhcp[1] = 1                  // htype ethernet
+	dhcp[2] = 6                  // hlen
+	copy(dhcp[28:34], mac[:])    // chaddr
+	copy(dhcp[12:16], ciaddr[:]) // ciaddr
+	copy(dhcp[16:20], yiaddr[:]) // yiaddr
 	copy(dhcp[236:240], []byte{99, 130, 83, 99})
 	opts := []byte{53, 1, msgType}
 	if hostname != "" {
@@ -38,7 +38,7 @@ func buildFrame(msgType byte, mac [6]byte, ciaddr, yiaddr, reqIP [4]byte, hostna
 	ip[2] = byte(ipTotal >> 8)
 	ip[3] = byte(ipTotal)
 	ip[8] = 64
-	ip[9] = 17 // UDP
+	ip[9] = 17                                  // UDP
 	ip[12], ip[13], ip[14], ip[15] = 0, 0, 0, 0 // 0.0.0.0
 	ip[16], ip[17], ip[18], ip[19] = 255, 255, 255, 255
 
@@ -113,9 +113,9 @@ func TestParseVLANTagged(t *testing.T) {
 
 func TestParseRejectsNonDHCP(t *testing.T) {
 	cases := map[string][]byte{
-		"empty":   {},
-		"short":   make([]byte, 40),
-		"arp":     append(append(make([]byte, 12), 0x08, 0x06), make([]byte, 28)...),
+		"empty": {},
+		"short": make([]byte, 40),
+		"arp":   append(append(make([]byte, 12), 0x08, 0x06), make([]byte, 28)...),
 		"no-cookie": func() []byte {
 			f := buildFrame(TypeDiscover, [6]byte{1, 2, 3, 4, 5, 6}, [4]byte{}, [4]byte{}, [4]byte{}, "x", false)
 			f[14+20+8+236] = 0 // break magic cookie

@@ -15,9 +15,9 @@ var leaseFiles = []string{
 	"/tmp/dnsmasq.leases",
 }
 
-// LeaseName returns the DHCP hostname for ip from any readable dnsmasq lease file, or "".
+// leaseName returns the DHCP hostname for ip from any readable dnsmasq lease file, or "".
 // Format per line: <expiry> <mac> <ip> <hostname> <client-id>
-func LeaseName(ip string) string {
+func leaseName(ip string) string {
 	for _, f := range leaseFiles {
 		b, err := os.ReadFile(f)
 		if err != nil {
@@ -36,8 +36,8 @@ func LeaseName(ip string) string {
 	return ""
 }
 
-// PTRName resolves reverse DNS for ip with a short timeout, or "".
-func PTRName(ctx context.Context, ip string) string {
+// ptrName resolves reverse DNS for ip with a short timeout, or "".
+func ptrName(ctx context.Context, ip string) string {
 	cctx, cancel := context.WithTimeout(ctx, 800*time.Millisecond)
 	defer cancel()
 	names, err := net.DefaultResolver.LookupAddr(cctx, ip)
@@ -54,8 +54,8 @@ func PTRName(ctx context.Context, ip string) string {
 
 // BestName returns the most specific human name for ip (DHCP lease → PTR), or "".
 func BestName(ctx context.Context, ip string) string {
-	if h := LeaseName(ip); h != "" {
+	if h := leaseName(ip); h != "" {
 		return h
 	}
-	return PTRName(ctx, ip)
+	return ptrName(ctx, ip)
 }

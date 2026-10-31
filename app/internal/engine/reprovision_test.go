@@ -192,7 +192,7 @@ func TestCheckBridgeReopensDeadBridge(t *testing.T) {
 		func([]byte) error { return errors.New("network is down") },
 		10*time.Millisecond,
 	)
-	_ = b.SetBlocked(map[string]string{"192.168.1.50": "aa:bb:cc:dd:ee:50"})
+	_ = b.SetState(map[string]string{"192.168.1.50": "aa:bb:cc:dd:ee:50"}, nil)
 	b.Start()
 	e.mu.Lock()
 	e.arp = b

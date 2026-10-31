@@ -41,13 +41,13 @@ import (
 // privileged helpers (on the same root-owned volume as the binary itself,
 // because file capabilities are ignored on a nosuid mount). It is a variable so
 // a test can point it at an empty directory and exercise the PATH fallback.
-var Dir = "/usr/local/lib/netdash/helpers"
+var dir = "/usr/local/lib/netdash/helpers"
 
-// CapNetAdmin is what nft(8) needs in order to change state through netlink,
+// capNetAdmin is what nft(8) needs in order to change state through netlink,
 // and what this process needs for its own in-process link work (setting the
 // MTU, bouncing the radio). The helper never needs anything else: reads are
 // unprivileged, and raw sockets are used in-process rather than by exec.
-const CapNetAdmin uint = 12
+const capNetAdmin uint = 12
 
 // Revisions of the security.capability value. The attribute's name is shared
 // with meanings that are not capabilities, so a value whose revision bits match
@@ -90,17 +90,17 @@ func grantsCap(b []byte, cap uint) bool {
 // execve even when the executed file carries none of its own — so the euid test
 // comes first and covers "run it under sudo by hand".
 func Capable(name string) (bool, string) {
-	if !Available(name) {
+	if !available(name) {
 		return false, name + " not found"
 	}
-	if os.Geteuid() == 0 || fileCap(Path(name), CapNetAdmin) {
+	if os.Geteuid() == 0 || fileCap(Path(name), capNetAdmin) {
 		return true, ""
 	}
 	return false, "no CAP_NET_ADMIN on " + name + " — run ./grantcaps.sh, then restart netdash"
 }
 
 // Available reports whether the named helper resolves to something runnable.
-func Available(name string) bool {
+func available(name string) bool {
 	return installed(name) != "" || lookPath(name) != ""
 }
 
@@ -120,9 +120,9 @@ func Path(name string) string {
 // installed returns the copy grantcaps.sh installs, when there is one. The
 // capability itself is checked separately by Capable, so a copy whose grant was
 // lost fails with the message that names the fix instead of with a bare
-// permission error from deep inside tc.
+// permission error from deep inside nft.
 func installed(name string) string {
-	p := filepath.Join(Dir, name)
+	p := filepath.Join(dir, name)
 	st, err := os.Stat(p)
 	if err != nil || st.IsDir() || st.Mode()&0o111 == 0 {
 		return ""

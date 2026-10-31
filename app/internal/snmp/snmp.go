@@ -23,8 +23,7 @@ type Neighbor struct {
 
 // Link describes a bridge FDB entry's egress interface classification.
 type Link struct {
-	Conn   string // eth | wifi5 | wifi2 | unknown
-	IfName string
+	Conn string // eth | wifi5 | wifi2 | unknown
 }
 
 func connect(cfg Config) (*gosnmp.GoSNMP, error) {
@@ -211,7 +210,7 @@ func Links(cfg Config) (map[string]Link, error) {
 		}
 		desc := ifDescr[ifi]
 		name := ifName[ifi]
-		out[mac] = Link{Conn: classify(ifType[ifi], desc, name), IfName: firstNonEmpty(name, desc)}
+		out[mac] = Link{Conn: classify(ifType[ifi], desc, name)}
 	}
 	return out, nil
 }
@@ -381,13 +380,6 @@ func pduString(v interface{}) string {
 		return strings.TrimRight(string(b), "\x00")
 	}
 	return fmt.Sprintf("%v", v)
-}
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 // ProbeReport describes what a router answers over SNMP. It is the honest

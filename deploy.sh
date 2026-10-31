@@ -20,6 +20,7 @@ fi
 # Dev copy for running the binary by hand. It cannot hold capabilities — the
 # project volume is mounted nosuid, where the kernel ignores them — so the
 # grant goes to the /usr/local copy that grantcaps.sh installs below.
+mkdir -p run
 cp app/bin/netdash run/netdash
 
 if ! sudo -n ./grantcaps.sh; then

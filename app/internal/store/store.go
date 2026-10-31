@@ -15,8 +15,7 @@ import (
 )
 
 type Store struct {
-	dir string
-	db  *sql.DB
+	db *sql.DB
 }
 
 func Open(dataDir string) (*Store, error) {
@@ -89,11 +88,8 @@ CREATE TABLE IF NOT EXISTS scans(
 		db.Close()
 		return nil, err
 	}
-	return &Store{db: db, dir: dataDir}, nil
+	return &Store{db: db}, nil
 }
-
-// Dir returns the data directory the store was opened on.
-func (s *Store) Dir() string { return s.dir }
 
 // migrate applies additive column migrations for databases created before
 // the column existed.

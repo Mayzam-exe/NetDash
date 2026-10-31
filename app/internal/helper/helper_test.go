@@ -13,9 +13,9 @@ import (
 // on this machine.
 func pointDir(t *testing.T) {
 	t.Helper()
-	restore := Dir
-	Dir = t.TempDir()
-	t.Cleanup(func() { Dir = restore })
+	restore := dir
+	dir = t.TempDir()
+	t.Cleanup(func() { dir = restore })
 }
 
 // putTool drops an executable named name into dir and returns its path.
@@ -30,7 +30,7 @@ func putTool(t *testing.T, dir, name string) string {
 
 func TestPathPrefersTheInstalledCopy(t *testing.T) {
 	pointDir(t)
-	installed := putTool(t, Dir, "tc")
+	installed := putTool(t, dir, "tc")
 	onPath := putTool(t, t.TempDir(), "tc")
 	t.Setenv("PATH", filepath.Dir(onPath))
 
@@ -41,14 +41,14 @@ func TestPathPrefersTheInstalledCopy(t *testing.T) {
 
 	// No copy yet (grantcaps.sh not run): fall back to the system tool rather
 	// than refuse to run at all.
-	Dir = t.TempDir()
+	dir = t.TempDir()
 	if got := Path("tc"); got != onPath {
 		t.Errorf("Path = %q, want the PATH tool %q", got, onPath)
 	}
 
 	// Neither: hand exec the bare name, which produces its own honest
 	// "not found in $PATH" instead of a fabricated one.
-	Dir = t.TempDir()
+	dir = t.TempDir()
 	t.Setenv("PATH", t.TempDir())
 	if got := Path("tc"); got != "tc" {
 		t.Errorf("Path = %q, want the bare name %q", got, "tc")
@@ -59,15 +59,15 @@ func TestAvailableReportsWhatItChecked(t *testing.T) {
 	pointDir(t)
 	t.Setenv("PATH", t.TempDir())
 
-	if Available("tc") {
+	if available("tc") {
 		t.Error("available with neither a copy nor a PATH entry")
 	}
 	putTool(t, t.TempDir(), "tc") // still not on PATH
-	if Available("tc") {
+	if available("tc") {
 		t.Error("available without the tool being reachable")
 	}
-	installed := putTool(t, Dir, "tc")
-	if !Available("tc") {
+	installed := putTool(t, dir, "tc")
+	if !available("tc") {
 		t.Errorf("not available with a copy at %q", installed)
 	}
 }
@@ -77,7 +77,7 @@ func TestCapableNamesTheFixRatherThanTheSymptom(t *testing.T) {
 		t.Skip("running as root, which needs no helper grant")
 	}
 	pointDir(t)
-	putTool(t, Dir, "tc") // present, but without a capability of its own
+	putTool(t, dir, "tc") // present, but without a capability of its own
 
 	ok, why := Capable("tc")
 	if ok {

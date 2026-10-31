@@ -202,12 +202,6 @@ func (b *Blocker) sendBurst(frames [][]byte) error {
 	return nil
 }
 
-// SetBlocked reconciles only the blocked set (speed limits cleared); kept
-// for callers and tests that do not shape traffic.
-func (b *Blocker) SetBlocked(desired map[string]string) error {
-	return b.SetState(desired, nil)
-}
-
 // SetState reconciles the poison set to the union of blocked victims and
 // rate-limited victims: blocked entries drop every frame, limited entries
 // are relayed through the token-bucket shaper. Newly poisoned victims get a
@@ -985,18 +979,4 @@ func readIPForward() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(b)), nil
-}
-
-// parseARPLine parses a /proc/net/arp data line; nil when incomplete.
-func parseARPLine(line string) (net.IP, net.HardwareAddr) {
-	f := strings.Fields(line)
-	if len(f) < 4 {
-		return nil, nil
-	}
-	ip := net.ParseIP(f[0])
-	mac, err := net.ParseMAC(f[3])
-	if err != nil || ip == nil || f[2] == "0x0" {
-		return nil, nil
-	}
-	return ip.To4(), mac
 }

@@ -58,10 +58,10 @@ func (f *fakeNet) frameAt(i int) []byte {
 	return f.frames[i]
 }
 
-func TestSetBlockedPoisonsBothDirections(t *testing.T) {
+func TestSetStatePoisonsBothDirections(t *testing.T) {
 	fn := &fakeNet{}
 	b := testBlocker(fn)
-	if err := b.SetBlocked(map[string]string{"192.168.1.23": "aa:bb:cc:dd:ee:ff"}); err != nil {
+	if err := b.SetState(map[string]string{"192.168.1.23": "aa:bb:cc:dd:ee:ff"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	// burst=3 rounds × 2 directions
@@ -93,15 +93,15 @@ func TestReconcileIdempotentAndRepairs(t *testing.T) {
 	fn := &fakeNet{}
 	b := testBlocker(fn)
 	desired := map[string]string{"192.168.1.23": "aa:bb:cc:dd:ee:ff"}
-	_ = b.SetBlocked(desired)
+	_ = b.SetState(desired, nil)
 	n := fn.count()
-	_ = b.SetBlocked(desired)
+	_ = b.SetState(desired, nil)
 	if fn.count() != n {
-		t.Errorf("second identical SetBlocked sent %d extra frames", fn.count()-n)
+		t.Errorf("second identical SetState sent %d extra frames", fn.count()-n)
 	}
 
 	// Unblock: repairs must carry the REAL gateway MAC as sender.
-	_ = b.SetBlocked(map[string]string{})
+	_ = b.SetState(map[string]string{}, nil)
 	if fn.count() != n+6 {
 		t.Fatalf("repair frames = %d, want 6", fn.count()-n)
 	}
@@ -123,7 +123,7 @@ func TestReconcileIdempotentAndRepairs(t *testing.T) {
 func TestTickerRefreshesPoison(t *testing.T) {
 	fn := &fakeNet{}
 	b := testBlocker(fn)
-	_ = b.SetBlocked(map[string]string{"192.168.1.23": "aa:bb:cc:dd:ee:ff"})
+	_ = b.SetState(map[string]string{"192.168.1.23": "aa:bb:cc:dd:ee:ff"}, nil)
 	b.Start()
 	defer b.Stop()
 	time.Sleep(130 * time.Millisecond) // interval 50ms → ≥2 ticks × 2 frames
@@ -135,14 +135,14 @@ func TestTickerRefreshesPoison(t *testing.T) {
 func TestStopRepairsAndRefuses(t *testing.T) {
 	fn := &fakeNet{}
 	b := testBlocker(fn)
-	_ = b.SetBlocked(map[string]string{"192.168.1.23": "aa:bb:cc:dd:ee:ff"})
+	_ = b.SetState(map[string]string{"192.168.1.23": "aa:bb:cc:dd:ee:ff"}, nil)
 	b.Start()
 	b.Stop()
 	if len(b.Active()) != 0 {
 		t.Errorf("active not cleared on stop")
 	}
-	if err := b.SetBlocked(map[string]string{"192.168.1.24": "aa:bb:cc:dd:ee:00"}); err == nil {
-		t.Errorf("SetBlocked after Stop should fail")
+	if err := b.SetState(map[string]string{"192.168.1.24": "aa:bb:cc:dd:ee:00"}, nil); err == nil {
+		t.Errorf("SetState after Stop should fail")
 	}
 	b.Stop() // idempotent
 }
@@ -151,7 +151,7 @@ func TestRepairSkipsStillBlocked(t *testing.T) {
 	fn := &fakeNet{}
 	b := testBlocker(fn)
 	desired := map[string]string{"192.168.1.23": "aa:bb:cc:dd:ee:ff"}
-	_ = b.SetBlocked(desired)
+	_ = b.SetState(desired, nil)
 	n := fn.count()
 	stale := map[string]string{
 		"192.168.1.23": "aa:bb:cc:dd:ee:ff", // still blocked → no repair
@@ -162,16 +162,6 @@ func TestRepairSkipsStillBlocked(t *testing.T) {
 	}
 	if fn.count() != n+6 {
 		t.Errorf("stale repair frames = %d, want 6", fn.count()-n)
-	}
-}
-
-func TestParseARPLine(t *testing.T) {
-	ip, mac := parseARPLine("192.168.1.1  0x1  0x2  14:ca:56:9e:4d:49  0x0  wlp3s0")
-	if ip == nil || ip.String() != "192.168.1.1" || mac.String() != "14:ca:56:9e:4d:49" {
-		t.Errorf("got %v %v", ip, mac)
-	}
-	if ip, _ := parseARPLine("192.168.1.5  0x1  0x0  00:00:00:00:00:00  0x0  wlp3s0"); ip != nil {
-		t.Errorf("incomplete entry should be nil")
 	}
 }
 
@@ -455,8 +445,8 @@ func TestAliveFalseWhenRefreshDies(t *testing.T) {
 		},
 		10*time.Millisecond,
 	)
-	if err := b.SetBlocked(map[string]string{"192.168.1.50": "aa:bb:cc:dd:ee:50"}); err != nil {
-		t.Fatalf("SetBlocked: %v", err)
+	if err := b.SetState(map[string]string{"192.168.1.50": "aa:bb:cc:dd:ee:50"}, nil); err != nil {
+		t.Fatalf("SetState: %v", err)
 	}
 	b.Start()
 	if !b.Alive() {
