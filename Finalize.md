@@ -111,6 +111,7 @@ app/web:  npx tsc --noEmit && npm run build   # vite → dist
 | 14 | `1d221ce` **Clear all alerts** | End-to-end alert wipe (deep-dive below). |
 | 15 | `c9ecbdf` **Timed block** | Block with expiry: `block_until` column, `{blocked:true, blockUntil:N}` patch semantics, 30 s reaper inside the schedule loop, dossier `1h/4h/12h` chips and a `releases HH:MM` chip. |
 | 16 | `ffa3551` **DHCP hostnames + gateway probe** | Passive DHCP sniffer (any router, live hostnames → name fill + Intel) and the honest SNMP capability probe that decides whether a per-client Signal column can ever be shown (deep-dive below). |
+| 17 | `2d6246f` `89b027a` `5791636` **Ponytail audit** | Whole-repo dead-code removal (report in the audit): legacy alerts view,4 dead components, ~150 lines orphan CSS, `SetBlocked`/`parseARPLine`/`Store.Dir`/`Link.IfName`, over-exported helpers, `legacy/` prototypes, broken windows build target, ~59 MB regenerable binaries. One hunter false-positive rejected (write-only signals are the live `snapshotTick` change-detector). |
 
 ---
 
