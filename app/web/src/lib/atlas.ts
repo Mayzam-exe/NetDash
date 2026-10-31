@@ -679,4 +679,4 @@ export function atlasKeyZoom(f: number): void {
   atlasZoom(atlas.W / 2, atlas.H / 2, f);
 }
 
-export { atlasZoom, atlasFit, atlasResize, mountAtlas, unmountAtlas };
+export { atlasFit, atlasResize, mountAtlas, unmountAtlas };

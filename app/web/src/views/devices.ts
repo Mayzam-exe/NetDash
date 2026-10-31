@@ -28,7 +28,6 @@ export function filteredDevices(): Device[] {
   const k = state.sort.key;
   const dir = state.sort.dir;
   const rank: Record<string, number> = {
-    critical: 0,
     warning: 1,
     online: 2,
     blocked: 3,

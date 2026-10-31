@@ -157,11 +157,6 @@ export function connLabel(c: Conn): string {
         : 'Unknown';
 }
 
-export const stateLabel = (st: string) =>
-  st === 'on' || st === 'online'
-    ? 'Connected'
-    : st.charAt(0).toUpperCase() + st.slice(1);
-
 /** Prefer the backend's persisted kind; fall back to a name/vendor heuristic
  *  for rows stored before type inference existed. Unknown stays unknown. */
 export function deviceKind(d: Device): Kind {

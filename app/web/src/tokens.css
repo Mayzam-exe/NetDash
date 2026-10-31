@@ -50,7 +50,7 @@
   --brass: #4f8cff;         /* legacy alias: focus ring, skip-link, chips */
   --on-acc: #ffffff;
   --crimson: #ff4d5e;       /* destructive / lockdown */
-  --verdigris: #22d3ee;     /* truth-chip enforced / intel */
+  --verdigris: #22d3ee;     /* intel accent */
 
   /* status only */
   --green: #34d399;
@@ -216,14 +216,8 @@ h2, h3, h4 {
 
 /* Tags, not pills — square reads instrument, round reads consumer app. */
 .chip,
-.chipmini,
-.truth-chip {
+.chipmini {
   border-radius: var(--radius-sm);
-}
-.truth-chip {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.03em;
 }
 
 /* Table headers: monospace column labels. */
@@ -266,82 +260,6 @@ h2, h3, h4 {
   letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
   color: var(--muted);
-}
-
-/* Status dot — shape + colour (never colour alone). */
-.status-dot {
-  width: 8px;
-  height: 8px;
-  flex: none;
-  display: inline-block;
-  border-radius: 50%;
-  background: var(--muted);
-}
-.status-dot.online {
-  background: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent);
-}
-.status-dot.warning {
-  background: var(--amber);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 22%, transparent);
-}
-.status-dot.offline {
-  background: transparent;
-  border: 2px solid var(--muted);
-}
-.status-dot.blocked {
-  border-radius: 2px;
-}
-
-/* TruthChip — "enforced vs reference-only vs unavailable", the signature. */
-.truth-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  font-weight: 650;
-  line-height: 1.35;
-  border: 1px solid var(--border);
-  background: var(--panel2);
-}
-.truth-chip .tc-mark {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 50%;
-}
-.truth-chip.enforced {
-  color: var(--verdigris);
-  border-color: color-mix(in srgb, var(--verdigris) 45%, var(--border));
-}
-.truth-chip.enforced .tc-mark {
-  background: var(--verdigris);
-}
-.truth-chip.reference {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-}
-.truth-chip.reference .tc-mark {
-  background: var(--accent);
-}
-.truth-chip.unavailable {
-  color: var(--muted);
-}
-.truth-chip.unavailable .tc-mark {
-  background: var(--muted);
-}
-.truth-chip.pending {
-  color: var(--amber);
-  border-color: color-mix(in srgb, var(--amber) 45%, var(--border));
-}
-.truth-chip.pending .tc-mark {
-  background: var(--amber);
-}
-.tc-reason {
-  font-weight: 500;
-  opacity: 0.9;
-  border-left: 1px solid var(--border);
-  padding-left: 6px;
 }
 
 /* =========================================================================
@@ -795,7 +713,6 @@ textarea {
 .chipmini,
 .searchbtn,
 .pill,
-.truth-chip,
 .nbadge,
 .op-chip,
 .inp,

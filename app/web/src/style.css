@@ -89,8 +89,6 @@ a:hover{text-decoration:underline}
 .scope .chart-wrap{height:112px;padding:6px 10px 0}
 .scope .chart-legend{padding-top:2px}
 
-.dash-body{display:grid;grid-template-columns:minmax(0,1.95fr) minmax(0,1fr);gap:13px;flex:1;min-height:0}
-.right-rail{display:flex;flex-direction:column;gap:13px;min-height:0}
 .table-card{display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .table-toolbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .chip{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);font-size:12.5px;font-weight:600;transition:color .12s,border-color .12s,background .12s}
@@ -116,7 +114,6 @@ table.tbl{width:100%;border-collapse:collapse}
 .dot.warning{background:var(--amber)}
 .dot.offline{background:transparent;border:2px solid var(--muted);width:9px;height:9px}
 .dot.blocked{background:var(--muted)}
-.dot.critical{background:var(--red);box-shadow:0 0 7px color-mix(in srgb,var(--red) 60%,transparent)}
 .c-name .nm{font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;letter-spacing:-.005em}
 .c-name .sub{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
 .sub.warn-text{color:var(--amber)}
@@ -124,7 +121,6 @@ table.tbl{width:100%;border-collapse:collapse}
 tr.st-offline td{opacity:.58}
 tr.st-blocked td{opacity:.72}
 tr.st-warning td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
-tr.st-critical td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 .copyable{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;border-radius:4px;padding:1px 4px;margin-left:-4px;transition:background .12s}
 .copyable:hover{background:var(--panel2);outline:1px solid var(--border)}
 .c-mac{color:var(--muted)}
@@ -150,14 +146,6 @@ tr.st-critical td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 .chart-wrap canvas{width:100%;height:100%;display:block}
 .chart-tip{position:absolute;pointer-events:none;background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:6px 9px;font-family:var(--mono);font-size:11.5px;box-shadow:var(--shadow);z-index:5;white-space:nowrap;display:none}
 
-.alerts-card{display:flex;flex-direction:column;min-height:0;flex:1}
-.alert-list{overflow:auto;padding:6px;min-height:0}
-.alert-item{display:flex;gap:10px;width:100%;text-align:left;padding:9px 11px;border-radius:8px;align-items:flex-start;transition:background .1s}
-.alert-item:hover{background:var(--hover)}
-.alert-item .sev{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
-.alert-item.critical .sev{background:var(--red)} .alert-item.warning .sev{background:var(--amber)} .alert-item.info .sev{background:var(--blue)}
-.alert-item .msg{font-size:13px;line-height:1.45}
-.alert-item .meta{font-size:11.5px;color:var(--muted);margin-top:2px;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .empty{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px}
 
 .summary-strip{display:flex;gap:10px;margin-bottom:13px;flex-wrap:wrap}
@@ -281,10 +269,6 @@ dl.kv dd{margin:0;font-size:13.5px;font-weight:550;text-align:right}
 .cmdk-item .ci-meta{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
 .cmdk-item .ci-right{margin-left:auto;font-size:12px;color:var(--muted)}
 
-.boot-overlay{position:fixed;inset:0;background:var(--bg);z-index:95;display:grid;place-items:center;gap:14px;align-content:center}
-.boot-overlay .spin{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .9s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
-
 .alerts-view-list{display:flex;flex-direction:column;gap:8px}
 .alert-row{display:flex;align-items:center;gap:13px;padding:13px 16px}
 .alert-row .sev{width:9px;height:9px;border-radius:50%;flex:none}
@@ -294,9 +278,7 @@ dl.kv dd{margin:0;font-size:13.5px;font-weight:550;text-align:right}
 .alert-row .right{margin-left:auto;display:flex;gap:8px;align-items:center}
 
 @media (max-width:1150px){
-  .dash-body{grid-template-columns:1fr}
   .kpis{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
-  .right-rail{min-height:300px}
   .form-row{grid-template-columns:1fr}
   .scope .chart-wrap{height:140px}
 }
