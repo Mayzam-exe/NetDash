@@ -1,6 +1,7 @@
 import type {
   Alert,
   CmdResult,
+  Detected,
   Device,
   DevicePatch,
   DNSResult,
@@ -168,6 +169,16 @@ export function probeRouter(
     host: host,
     community: community,
   });
+}
+
+/** Run network detection: the backend applies the network-derived settings
+ *  (SSIDs, egress address) and returns the full detection for the
+ *  reference-only form fields. */
+export function detectNetwork(): Promise<{
+  detected: Detected;
+  settings: Settings;
+}> {
+  return send('/api/settings/detect', 'POST', {});
 }
 
 export function openStream(

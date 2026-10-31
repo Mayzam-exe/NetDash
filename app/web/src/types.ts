@@ -169,11 +169,27 @@ export interface ProbeReport {
   error: string;
 }
 
+/** What the OS (and one internet echo) report about the network this host
+ *  is on. '' means "unknown" — never a value to clear anything with. */
+export interface Detected {
+  wanType: string; // DHCP | Static | PPPoE
+  dns: string[];
+  ssid24: string;
+  ssid5: string;
+  ch24: string;
+  ch5: string;
+  bw24: string;
+  bw5: string;
+  sec: string; // WPA3 | WPA2
+  publicIp: string;
+}
+
 export interface Settings {
   ssid24: string;
   ssid5: string;
   gatewayIp: string;
-  wanIp: string;
+  wanIp: string; // WAN health probe target (the host pinged for WAN status)
+  wanEgress: string; // auto-detected public egress address (display-only)
   snmpEnabled: boolean;
   snmpHost: string;
   snmpCommunity: string;

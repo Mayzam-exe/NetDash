@@ -1,7 +1,7 @@
 import { getSettings, putSettings } from '../api';
 import { defaultPrefs, state } from '../state';
 import { checked, esc, toast, val } from '../lib/ui';
-import type { Settings, Status } from '../types';
+import type { Detected, Settings, Status } from '../types';
 
 /**
  * Lockdown — the panic switch. When engaged, every device loses internet
@@ -79,8 +79,14 @@ export function settingsView(): string {
     '<div class="form-row"><div class="flabel">' + label + '</div><div>' + control +
     '</div><div class="fhint">' + (hint || '') + '</div></div>';
   const sel = (id: string, opts: string[], v: string) =>
+    // A detected value outside the fixed option list (a Wi-Fi channel the
+    // list never anticipated, e.g. "3") must render as itself — without the
+    // extra option the browser would fall back to the first entry and the
+    // next save would silently overwrite it.
     '<select class="inp" id="' + id + '">' +
-    opts.map(o => '<option' + (o === v ? ' selected' : '') + '>' + o + '</option>').join('') +
+    (v && !opts.includes(v) ? opts.concat([v]) : opts)
+      .map(o => '<option' + (o === v ? ' selected' : '') + '>' + o + '</option>')
+      .join('') +
     '</select>';
   const txt = (id: string, v: string, mono?: boolean) =>
     '<input class="inp' + (mono ? ' mono' : '') + '" id="' + id + '" value="' + esc(v) + '">';
@@ -109,22 +115,34 @@ export function settingsView(): string {
   return (
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
     '<h2 style="margin:0;font-size:18px">Settings</h2>' +
-    '<div style="margin-left:auto;display:flex;gap:9px">' +
+    '<div style="margin-left:auto;display:flex;gap:9px;align-items:center">' +
+    '<button class="btn" data-action="detect-network">Detect network</button>' +
+    (detectText
+      ? '<span class="mono" style="font-size:11.5px;color:var(--muted);max-width:360px">' +
+        esc(detectText) + '</span>'
+      : '') +
     '<button class="btn" data-action="discard-settings">Discard</button>' +
     '<button class="btn primary" data-action="save-settings">Save changes</button></div></div>' +
     '<div class="card" style="padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--amber);font-size:13px;color:var(--muted)">' +
     '<b style="color:var(--text)">NetDash monitors this network — it does not manage your router.</b> ' +
-    'Only <b>WAN IP, both SSIDs, router IP and the SNMP block</b> are stored by NetDash and used by the backend. ' +
+    'Only <b>WAN addresses, both SSIDs, router IP and the SNMP block</b> are stored by NetDash and used by the backend. ' +
+    '<b>Settings are written automatically</b> whenever NetDash detects the network ' +
+    '(startup, network change, every 10 minutes, or the Detect network button). ' +
     'Fields marked <i>reference only</i> (connection type, DNS, Wi-Fi channel/security/password, DHCP range, firewall/UPnP/remote) ' +
-    'are kept in your browser for your own reference and are <b>not applied</b> to any device.</div>' +
+    'are kept in this browser session for your own reference and are <b>not applied</b> to any device.</div>' +
     lockdownSection(s, status) +
     sec(
       'Internet',
       'How your network reaches the world',
       row('Connection type', sel('gWanType', ['DHCP', 'PPPoE', 'Static'], p.wanType),
-        'Reference only — not applied by NetDash') +
-      row('WAN IP', txt('gWanIp', s.wanIp, true),
-        status ? 'Status reports ' + status.wanIp : 'Reported by the gateway') +
+        'Auto-detected from NetworkManager — reference only, not applied by NetDash') +
+      row('WAN IP', txt('gWanEgress', s.wanEgress, true),
+        s.wanEgress
+          ? 'Auto-detected egress address — the address this network reaches the internet through'
+          : 'Auto-detected — empty until NetDash reaches the internet once') +
+      row('WAN probe target', txt('gWanIp', s.wanIp, true),
+        status ? 'Status reports ' + status.wanIp + ' — the host pinged for WAN health'
+          : 'Host pinged for WAN health') +
       row('DNS servers',
         '<div class="radio-group">' +
         '<label><input type="radio" name="gDns" id="gDnsAuto"' +
@@ -139,14 +157,14 @@ export function settingsView(): string {
       'Wi-Fi',
       'Wireless network names and radio settings',
       row('2.4 GHz SSID', txt('gSsid24', s.ssid24),
-        'Used by the dashboard to label 2.4 GHz devices') +
+        'Used by the dashboard to label 2.4 GHz devices — auto-tracked, refreshed on every detection') +
       row('2.4 GHz channel / bandwidth',
         '<div style="display:flex;gap:8px">' +
         sel('gCh24', ['Auto', '1', '6', '11'], p.ch24) +
         sel('gBw24', ['20 MHz', '40 MHz'], p.bw24) + '</div>',
         'Reference only — not applied by NetDash') +
       row('5 GHz SSID', txt('gSsid5', s.ssid5),
-        'Used by the dashboard to label 5 GHz devices') +
+        'Used by the dashboard to label 5 GHz devices — auto-tracked, refreshed on every detection') +
       row('5 GHz channel / bandwidth',
         '<div style="display:flex;gap:8px">' +
         sel('gCh5', ['Auto', '36', '44', '149', '157'], p.ch5) +
@@ -269,12 +287,61 @@ export function setProbeText(t: string): void {
   probeText = t;
 }
 
+/** Last detection result — feeds Discard's restore. */
+let lastDetect: Detected | null = null;
+
+/** Last detection readout, kept across view re-renders (probeText pattern). */
+let detectText = '';
+export function setDetectText(t: string): void {
+  detectText = t;
+}
+
+/** Overlay a detection onto the reference form fields. Prefs are session
+ *  scratch: detection wins wholesale, so every reload re-writes them from
+ *  the network actually joined — the auto-written settings contract. A field
+ *  detection could not answer keeps its current value. */
+function fillPrefs(d: Detected): void {
+  const p = state.prefs;
+  if (d.wanType) p.wanType = d.wanType;
+  if (d.dns.length) {
+    p.dnsMode = 'auto';
+    p.dns1 = d.dns[0];
+    p.dns2 = d.dns[1] || '';
+  }
+  if (d.ch24) p.ch24 = d.ch24;
+  if (d.bw24) p.bw24 = d.bw24;
+  if (d.ch5) p.ch5 = d.ch5;
+  if (d.bw5) p.bw5 = d.bw5;
+  if (d.sec) p.sec = d.sec;
+}
+
+/** Apply a /api/settings/detect response: stored settings (engine-applied)
+ *  plus the detection itself for the reference-only fields. */
+export function applyDetect(r: { detected: Detected; settings: Settings }): void {
+  lastDetect = r.detected;
+  state.settings = r.settings;
+  fillPrefs(r.detected);
+}
+
+/** One-line summary of what detection could honestly answer. */
+export function detectSummary(d: Detected): string {
+  const bits: string[] = [];
+  if (d.wanType) bits.push(d.wanType);
+  const ssid = d.ssid24 || d.ssid5;
+  if (ssid) bits.push(ssid);
+  if (d.dns.length) bits.push('DNS ' + d.dns.join(' + '));
+  if (d.sec) bits.push(d.sec);
+  if (d.publicIp) bits.push('egress ' + d.publicIp);
+  return bits.length ? 'detected: ' + bits.join(' · ') : 'nothing detected';
+}
+
 /** Read the settings form into memory (API fields + client-only prefs). */
 export function collectGlobalSettings(): void {
   if (document.getElementById('gWanType') == null) return;
   const s = state.settings;
   const p = state.prefs;
   s.wanIp = val('gWanIp');
+  s.wanEgress = val('gWanEgress');
   s.ssid24 = val('gSsid24');
   s.ssid5 = val('gSsid5');
   s.gatewayIp = val('gRouterIp');
@@ -305,7 +372,7 @@ export async function saveSettings(): Promise<void> {
   collectGlobalSettings();
   try {
     state.settings = await putSettings(state.settings);
-    toast('Saved to NetDash: WAN IP, SSIDs, router IP and SNMP. Network/Wi-Fi controls are reference-only and were not applied.');
+    toast('Saved to NetDash: WAN addresses, SSIDs, router IP and SNMP. Network/Wi-Fi controls are reference-only and were not applied.');
   } catch {
     toast('Could not reach the API — settings not saved', 'err');
   }
@@ -330,7 +397,10 @@ export async function setLockdown(on: boolean): Promise<void> {
 }
 
 export async function discardSettings(): Promise<void> {
+  // Back to what detection says rather than factory defaults: the form
+  // should describe the network actually joined.
   state.prefs = defaultPrefs();
+  if (lastDetect) fillPrefs(lastDetect);
   try {
     state.settings = await getSettings();
   } catch {

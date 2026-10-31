@@ -7,6 +7,7 @@ import {
   clearAlerts,
   delSpoof,
   deleteDevice,
+  detectNetwork,
   getIntel,
   getSettings,
   getSnapshot,
@@ -44,7 +45,7 @@ import { dashboardView } from './views/dashboard';
 import { deviceView, mergeDevice, restoreScan, runDiag, saveDevice } from './views/device';
 import { devicesView } from './views/devices';
 import { atlasHud, mapView } from './views/map';
-import { discardSettings, saveSettings, setLockdown, setProbeText, settingsView } from './views/settings';
+import { applyDetect, discardSettings, detectSummary, saveSettings, setDetectText, setLockdown, setProbeText, settingsView } from './views/settings';
 import { h, render as renderPreact } from 'preact';
 import { AlertsApp } from './views/alerts.app';
 import { alertFilterSig, syncSignals, uiTick } from './signals';
@@ -673,6 +674,19 @@ async function handleClick(e: MouseEvent): Promise<void> {
       render();
       break;
     }
+    case 'detect-network': {
+      setDetectText('detecting…');
+      render();
+      try {
+        const r = await detectNetwork();
+        applyDetect(r);
+        setDetectText(detectSummary(r.detected));
+      } catch {
+        setDetectText('detection failed');
+      }
+      render();
+      break;
+    }
     case 'toggle-lockdown': {
       // Applied straight away — see setLockdown().
       const box = el as HTMLInputElement;
@@ -887,6 +901,22 @@ async function boot(): Promise<void> {
   } catch {
     /* spoof rules are optional */
   }
+  // Auto-written network settings: the backend applies SSIDs/egress itself;
+  // this overlays the reference form fields once detection lands.
+  // Fire-and-forget so boot never waits on nmcli/internet, and never
+  // re-render under the user's fingers mid-typing.
+  detectNetwork()
+    .then(r => {
+      applyDetect(r);
+      const a = document.activeElement;
+      const typing =
+        !!a &&
+        (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA');
+      if (state.view === 'settings' && !typing) render();
+    })
+    .catch(() => {
+      /* detection is best-effort */
+    });
   openStream(applySnapshot, () => {
     /* EventSource reconnects on its own */
   });

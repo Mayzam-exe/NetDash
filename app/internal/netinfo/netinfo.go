@@ -333,26 +333,11 @@ func readWireless(ifName string) (freq float64, signal int, ok bool) {
 }
 
 // parseIwLink extracts "freq: 5785.0" and "signal: -58 dBm" lines from the
-// output of `iw dev <if> link`.
+// output of `iw dev <if> link`. It is parseLinkDetail reduced to the two
+// fields WifiSignal needs, so the two parsers cannot drift apart.
 func parseIwLink(out string) (freq float64, signal int, ok bool) {
-	var hasFreq, hasSig bool
-	for _, line := range strings.Split(out, "\n") {
-		t := strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(t, "freq:"):
-			f, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(t, "freq:")), 64)
-			if err == nil {
-				freq, hasFreq = f, true
-			}
-		case strings.HasPrefix(t, "signal:"):
-			v := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(strings.TrimPrefix(t, "signal:")), "dBm"))
-			s, err := strconv.Atoi(v)
-			if err == nil {
-				signal, hasSig = s, true
-			}
-		}
-	}
-	return freq, signal, hasFreq || hasSig
+	_, freq, signal, _, _, ok = parseLinkDetail(out)
+	return freq, signal, ok
 }
 
 // SubnetHosts lists candidate IPv4 hosts on this machine's local subnets —

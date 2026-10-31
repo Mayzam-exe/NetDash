@@ -55,6 +55,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/spoof-rules/{id}", s.handleSpoofDel)
 	mux.HandleFunc("GET /api/settings", s.handleGetSettings)
 	mux.HandleFunc("PUT /api/settings", s.handlePutSettings)
+	mux.HandleFunc("POST /api/settings/detect", s.handleSettingsDetect)
 	mux.HandleFunc("GET /api/stream", s.handleStream)
 
 	// static frontend (embedded), SPA fallback
@@ -153,6 +154,14 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.e.Settings())
+}
+
+// handleSettingsDetect runs network detection: the engine applies the
+// network-derived settings itself (SSIDs, egress address), and the raw
+// detection rides back so the UI can fill the reference-only form fields.
+func (s *Server) handleSettingsDetect(w http.ResponseWriter, r *http.Request) {
+	det, st := s.e.DetectNetwork()
+	writeJSON(w, http.StatusOK, map[string]any{"detected": det, "settings": st})
 }
 
 func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {

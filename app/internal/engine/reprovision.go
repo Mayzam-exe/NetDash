@@ -40,6 +40,9 @@ func (e *Engine) checkGateway() {
 		return
 	}
 	e.fireAlert("gwadopt", "info", "Network changed — adopted gateway "+det, nil, time.Minute)
+	// New network, new identity: re-run detection so the SSIDs and egress
+	// address follow the machine instead of describing the last place it was.
+	go e.autoDetect()
 }
 
 // rebindBridge tears down enforcement bound to the previous gateway and

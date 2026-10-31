@@ -117,7 +117,7 @@ export const state: AppState = {
   alerts: [],
   series: { down: [], up: [], lat: [], points: 0 },
   settings: {
-    ssid24: '', ssid5: '', gatewayIp: '', wanIp: '',
+    ssid24: '', ssid5: '', gatewayIp: '', wanIp: '', wanEgress: '',
     snmpEnabled: false, snmpHost: '', snmpCommunity: 'public', snmpWanIf: '',
     lockdown: false,
   },

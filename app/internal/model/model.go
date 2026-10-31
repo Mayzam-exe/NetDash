@@ -101,6 +101,7 @@ type Settings struct {
 	SSID5         string `json:"ssid5"`
 	GatewayIP     string `json:"gatewayIp"`
 	WANIP         string `json:"wanIp"`
+	WanEgress     string `json:"wanEgress"`
 	SnmpEnabled   bool   `json:"snmpEnabled"`
 	SnmpHost      string `json:"snmpHost"`
 	SnmpCommunity string `json:"snmpCommunity"`

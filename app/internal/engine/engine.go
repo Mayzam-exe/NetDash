@@ -299,6 +299,9 @@ func (e *Engine) Run(ctx context.Context) {
 	go e.scheduleLoop(ctx)
 	go e.meterLoop(ctx)
 	go e.dhcpSniffLoop(ctx)
+	// Auto-written network settings: fill SSIDs / egress address the moment
+	// the daemon starts, without blocking the loop on nmcli + internet.
+	go e.autoDetect()
 	go func() {
 		if err := mdns.Start(ctx, e.mdnsName); err != nil && ctx.Err() == nil {
 			log.Printf("mdns: %v", err)
@@ -1853,11 +1856,18 @@ func (e *Engine) scheduleLoop(ctx context.Context) {
 	t := time.NewTicker(scheduleEvery)
 	defer t.Stop()
 	var prevWant map[string]bool // last tick's per-device schedule state
+	autoNet := 0                 // tick counter for throttled network detection
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+		}
+		// Every 20th tick (10 minutes): re-sync SSIDs / egress address so a
+		// DHCP lease change or roaming between same-gateway networks is
+		// noticed without a restart. Runs off-loop; detection is best-effort.
+		if autoNet++; autoNet%20 == 0 {
+			go e.autoDetect()
 		}
 		e.reapTimedBlocks()
 		e.refreshBlockMode()
