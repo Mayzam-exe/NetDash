@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")"
 export PATH="$HOME/.local/bin:$PATH"
 
-./app/build.sh linux
+./app/build.sh
 
 have_svc=0
 if systemctl --user cat netdash.service >/dev/null 2>&1; then

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # NetDash build: frontend (Vite) -> embed -> Go binary.
 #   ./build.sh                 # build for this OS/arch -> bin/netdash
-#   ./build.sh linux windows   # cross-compile listed targets -> bin/netdash-<os>
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -21,16 +20,11 @@ cp -r web/dist/* internal/api/dist/
 
 echo "==> backend"
 "$GO" vet ./...
-targets=("$@")
-if [ ${#targets[@]} -eq 0 ]; then
-  targets=("$(go env GOOS)")
-fi
+# Linux-only by design: the raw-socket packages (arpblock, dhcp, netinfo,
+# scan) have no non-Linux implementation, so cross-compiling elsewhere cannot
+# succeed — build for this OS only.
 mkdir -p bin
-for t in "${targets[@]}"; do
-  out="bin/netdash"
-  if [ "$t" != "$(go env GOOS)" ] || [ ${#targets[@]} -gt 1 ]; then out="bin/netdash-$t"; fi
-  if [ "$t" = "windows" ]; then out="$out.exe"; fi
-  echo "==> $t -> $out"
-  GOOS="$t" GOARCH=amd64 "$GO" build -trimpath -ldflags "-s -w" -o "$out" ./cmd/netdash
-done
+out="bin/netdash"
+echo "==> $("$GO" env GOOS) -> $out"
+"$GO" build -trimpath -ldflags "-s -w" -o "$out" ./cmd/netdash
 echo "done."
