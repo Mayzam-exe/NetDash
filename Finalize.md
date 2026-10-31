@@ -86,8 +86,9 @@ app/web:  npx tsc --noEmit && npm run build   # vite → dist
   values (spaces survive) — greps must expect merged selector lists and
   `rgba(r, g, b, .a)` spacing. (A `--grid: 0` scare earlier was exactly this
   grep artifact, not a bug.)
-- Setcap work: `/tmp` is **nosuid** — use `/var/tmp`. Sudo password (machine-local, kept out of record),
-  re-prime per shell (`printf '%s\n' '<local-sudo-password>' | sudo -S -p '' -v`).
+- Setcap work: `/tmp` is **nosuid** — use `/var/tmp`. Sudo password is the
+  machine's local one (kept out of this record on purpose), re-prime per
+  shell (`printf '%s\n' '<local-sudo-password>' | sudo -S -p '' -v`).
 
 ---
 
