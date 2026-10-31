@@ -50,6 +50,16 @@ no Node runtime, no cloud, no external services.
   exactly the previous state: per-device blocks and active-hours schedules
   still stand. The switch is a setting, so it survives a restart, and it is
   announced as a critical alert with the real number of devices cut off.
+- **Auto-written settings** — Settings knows the network instead of waiting
+  for typing: connection type (DHCP/Static/PPPoE), DNS resolvers, Wi-Fi
+  security, channels/bandwidth and both SSIDs come from what this host's own
+  stack reports (`nmcli`, `iw`, resolv.conf), plus the public egress address
+  from one internet echo. Detection runs at boot, on a network change
+  (gateway adoption), every 10 minutes, and on demand via the *Detect
+  network* button. Unknown stays unknown: a neighbour's stronger AP is never
+  labelled as your second band, and the WAN health probe keeps its own
+  reliable target — a ping to your own public IP is answered by the local
+  router's NAT, which would keep WAN green with the internet dead.
 - **Device actions** — block/allow, forget (10-minute rediscovery grace),
   real ICMP ping from the server, name/priority/reservation settings.
   Priority and reservations are stored and displayed for reference only:
@@ -180,6 +190,7 @@ parsing (TTL-walk, DNS, negative paths).
 | GET    | `/api/alerts`                | alert feed                           |
 | POST   | `/api/alerts/{id}/ack`       | acknowledge                          |
 | GET/PUT| `/api/settings`              | gateway/WAN IPs, SSIDs, SNMP         |
+| POST   | `/api/settings/detect`      | detect network now: auto-apply SSIDs/egress, return full detection |
 | GET    | `/api/history`               | time series for charts               |
 | GET    | `/api/stream`                | SSE: `hello` + `tick` snapshots      |
 
