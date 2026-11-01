@@ -1,254 +1,279 @@
 # NetDash
 
-A self-hosted home-network dashboard: device discovery, live metrics, alerts,
-and internet blocking for the machines on your LAN.
+A self-hosted dashboard for your home network. It finds every device on your
+LAN, shows you what's actually happening, and lets you cut a device's internet
+with one click.
 
-NetDash runs as a single binary on the machine where your traffic crosses
-(the router, a Linux gateway, or a Windows host). The web UI is embedded —
-no Node runtime, no cloud, no external services.
+It runs as a single binary on the machine where your traffic crosses — your
+router, a Linux box, or a Windows host. The web UI is baked into the binary, so
+there's no Node runtime, no cloud, and nothing phoning home.
 
 ![stack](https://img.shields.io/badge/backend-Go-00ADD8) ![stack](https://img.shields.io/badge/frontend-Vite%20%2B%20TypeScript-646CFF)
 
-## Features
+## Why I built it
 
-- **Device inventory** — ARP/SNMP discovery, MAC vendors (IEEE OUI), hostnames,
-  connection type (eth / Wi-Fi 5 / Wi-Fi 2) from SNMP bridge-FDB entries.
-  mDNS/Bonjour captures fill real names ("maxs-iPhone", "living-room-chromecast")
-  when DHCP/reverse DNS stays silent. The machine running NetDash is included
-  too ("this machine"), with its real Wi-Fi band, signal and local throughput.
-  Per-client Wi-Fi signal is not available — ISP gateways do not expose RSSI, so
-  the Signal column is populated for this machine only.
-- **Device types** — phone / laptop / TV / router / … inferred from gateway
-  position, hostname (incl. model-number names like `SM-G991B`), MAC vendor and
-  a ping-TTL fingerprint (128 = Windows → desktop); unknown stays unknown,
-  overridable per device; the choice persists.
-- **Per-device speed** — real down/up from nftables byte counters when this
-  host is on the gateway path; otherwise the UI shows `—` with the reason
-  rather than faking numbers.
-- **Live metrics** — gateway and WAN latency, host down/up/peak via
-  `/proc/net/dev` (Linux) counters (peak is since NetDash started), optional
-  SNMP WAN interface rates.
-- **Network map** — interactive canvas atlas (probe) with topology, per-device
-  state, and keyboard navigation.
-- **Alerts** — threshold-based (gateway/WAN down, high latency, device offline)
-  with cooldowns and deduplication, streamed over SSE.
-- **Blocking** — cut a device's internet via nftables (Linux) or Windows
-  Firewall when this host is the gateway, or via **ARP gateway-impersonation**
-  from a plain LAN client (the blocked device's frames are redirected here and
-  dropped; caches are repaired on unblock). Active-hours schedules included.
-  When the host cannot enforce blocks, the API says so instead of faking it.
-- **Speed limits** — per-device down/up caps in kbit/s through the same ARP
-  bridge: poisoned devices keep working but their frames are relayed through
-  a token-bucket shaper, so TCP self-throttles to the configured rate.
-  Block overrides limit; limits clear cleanly on unblock/shutdown.
-- **Lockdown** — a panic switch in Settings that cuts internet for every
-  device at once except this machine, the router, and the devices you marked
-  *Keep online during lockdown*. It applies the instant you flip it (no save
-  button), rides the same enforcement path as ordinary blocking, and is
-  refused outright when the host has no way to enforce it — so the dashboard
-  never shows a protected network that is not protected. Releasing it restores
-  exactly the previous state: per-device blocks and active-hours schedules
-  still stand. The switch is a setting, so it survives a restart, and it is
-  announced as a critical alert with the real number of devices cut off.
-- **Auto-written settings** — Settings knows the network instead of waiting
-  for typing: connection type (DHCP/Static/PPPoE), DNS resolvers, Wi-Fi
-  security, channels/bandwidth and both SSIDs come from what this host's own
-  stack reports (`nmcli`, `iw`, resolv.conf), plus the public egress address
-  from one internet echo. Detection runs at boot, on a network change
-  (gateway adoption), every 10 minutes, and on demand via the *Detect
-  network* button. Unknown stays unknown: a neighbour's stronger AP is never
-  labelled as your second band, and the WAN health probe keeps its own
-  reliable target — a ping to your own public IP is answered by the local
-  router's NAT, which would keep WAN green with the internet dead.
-- **Device actions** — block/allow, forget (10-minute rediscovery grace),
-  real ICMP ping from the server, name/priority/reservation settings.
-  Priority and reservations are stored and displayed for reference only:
-  NetDash does not shape other devices' bandwidth and does not create DHCP
-  reservations on your router (a reservation just keeps the device from
-  being expired).
-- **Troubleshoot** — per-device diagnostics that run for real from the
-  server: 4-probe ping, TTL-walk traceroute (system ping, no traceroute
-  binary needed), PTR + forward DNS lookup with mDNS fallback, and — for
-  this machine only — a genuine DHCP lease cycle (NetworkManager link
-  bounce) and Wi-Fi radio restart (`nmcli radio off/on`). Client devices
-  get an honest "no agent" explanation instead of fake output.
-- **Intercept + intel** — `watched` devices are relayed unmodified while every
-  cleartext hostname (DNS queries, TLS SNI, HTTP Host) is parsed off the wire
-  and stored per device (7-day retention, deduped). Even fully encrypted
-  connections are fingerprinted: `ja3`/`ja4` hashes of the TLS ClientHello
-  (cipher/extension order, ALPN) identify the exact app behind the tunnel
-  without breaking encryption. Needs the ARP bridge.
-- **Port scan** — half-open SYN sweep (crafted raw packets, `CAP_NET_RAW`,
-  no connection ever completes) with parallel banner grabs: HTTP status/
-  `Server`/title, TLS version + certificate CN + ALPN, SSH/FTP/SMTP/Redis
-  greetings. Curated ~110-port top list or explicit port sets (≤2000),
-  results stored per device and restored on the Troubleshoot tab; falls
-  back to connect-scan when raw sockets are unavailable (Windows build).
-- **DNS spoofing** — rules map domain → IP; a matching query from an
-  intercepted device is swallowed and answered with a forged A record pointing
-  at an IP you control (exact or suffix match, e.g. `example.com` covers
-  `a.example.com`).
-- **Network change detection** — the OS default route is re-read every 20 s;
-  when it moves to a different router (new Wi-Fi, different gateway address
-  like `192.168.1.100`), the gateway setting is re-adopted after two
-  consecutive confirmations, an alert is raised, and the ARP bridge is
-  rebound (old poisons repaired first). Works regardless of subnet overlap.
-- **Bridge outage recovery** — the ARP bridge's poison ticker and relay loop
-  exit permanently on socket errors (Wi-Fi bounce, cable pull, suspend). A
-  supervisor checks every 20 s and reopens the bridge once the machine has
-  an address again, so speed limits, intercept and DNS spoofing survive link
-  drops instead of silently dying until the next daemon restart.
-- **Idle device expiry** — devices unseen for 5 minutes are dropped from the
-  inventory and map automatically; they reappear the moment they reconnect.
-  Configured devices are kept: blocked, reserved, intercepted (`watched`),
-  speed-limited, scheduled, priority-set, manually classified, plus this
-  machine and the gateway.
+I was sitting in a café on their free Wi-Fi, trying to get some work done, and
+the connection was crawling. I pulled up the usual troubleshooting tools — and
+every single one of them wanted me to log into the router. I didn't have the
+password. It wasn't my router. So there I was, a device on the network with no
+way to see what was going on and no way to fix it.
+
+That's the gap NetDash fills. Almost every home-network tool assumes you *are*
+the admin — that you can log into the router, read its tables, and set the
+rules. But you're often just another client on the network: a guest, a tenant,
+someone on shared Wi-Fi. NetDash works from that seat. It discovers and manages
+devices, measures real traffic, and — when it can — enforces limits, all while
+being nothing more than one more machine on the LAN.
+
+The features kept growing out of that same frustration. I wanted to steer my
+own connection without touching the router, so speed limits came first. Then I
+wanted to redirect a domain to a box I controlled to test something, so DNS
+spoofing followed. Then intercept, TLS fingerprinting, port scanning — each one
+started as "I wish I could do this from out here." It's now a full dashboard
+that happens to work whether or not you own the network it's on.
+
+It's public now, so if you've ever been stuck on a network you couldn't
+administer, it's yours too.
+
+## The idea behind it
+
+Most network tools show you a wall of numbers and leave you to figure out what
+they mean. NetDash is built around one rule instead:
+
+> **Never show a number you can't actually measure.**
+
+If a real value exists, you get it. If the network won't give it up (most
+routers won't tell you another device's Wi-Fi signal, for instance), NetDash
+says so plainly instead of inventing a plausible-looking fake. You'll see `—`
+with the honest reason next to it. That principle shapes almost every feature
+below.
+
+## What it does
+
+**Find everything on your network.**
+NetDash discovers devices through ARP and SNMP, resolves MAC vendors, grabs
+real hostnames, and figures out the connection type (Ethernet, Wi-Fi 5, Wi-Fi
+2). It uses mDNS/Bonjour to pick up friendly names like `maxs-iPhone` or
+`living-room-chromecast` when DHCP stays quiet. It even includes the machine
+it's running on, with its real Wi-Fi band and signal.
+
+**Guess what each device is.**
+Phones, laptops, TVs, routers — inferred from where the device sits on the
+network, its hostname (including model numbers like `SM-G991B`), its MAC
+vendor, and a ping fingerprint. When it genuinely can't tell, it leaves it as
+"unknown" rather than guessing, and you can override any label (your choice
+sticks).
+
+**Measure speed and health for real.**
+Per-device download/upload comes straight from nftables byte counters when
+NetDash is sitting on the gateway path — actual bytes, not estimates. Gateway
+and WAN latency, plus host traffic, are read live. When NetDash isn't in a
+position to measure something, it tells you why instead of showing a made-up
+figure.
+
+**Block a device's internet.**
+One click cuts a device off. When NetDash runs on the gateway, it uses
+nftables (Linux) or the Windows Firewall. When it's just another device on your
+LAN, it uses ARP gateway-impersonation — the blocked device's traffic is
+redirected to NetDash and dropped, and its network caches are repaired the
+moment you unblock. If NetDash has no way to enforce a block, the API says so
+rather than pretending it worked.
+
+**Lock everything down in one flip.**
+A panic switch in Settings cuts internet for every device except this machine,
+the router, and the ones you've marked *Keep online during lockdown*. It
+applies instantly (no save button), and if NetDash can't actually enforce it,
+the switch refuses — so you never see a "protected" network that isn't. Letting
+go restores exactly the state you had before: individual blocks and schedules
+survive.
+
+**Set itself up automatically.**
+Connect to a network and NetDash fills in your settings on its own — connection
+type (DHCP / static / PPPoE), DNS servers, Wi-Fi security, channels, both
+SSIDs, and your public egress address. It reads all of it from your own
+machine's stack (`nmcli`, `iw`, `resolv.conf`) plus a single internet echo. It
+runs at boot, whenever you join a new network, every 10 minutes, or on demand.
+A neighbouring router's stronger signal is never mislabelled as your second
+band — and the WAN health check keeps its own reliable target, because pinging
+your own public IP would just get answered by your router's NAT and keep the
+"internet is up" light green even when it's dead.
+
+**Troubleshoot without leaving the dashboard.**
+Per-device diagnostics run for real from the server: a 4-probe ping, a
+traceroute (no extra binary needed), DNS lookups with mDNS fallback, and — for
+the host itself — a genuine DHCP lease renewal and Wi-Fi radio restart. Devices
+that aren't the host get an honest "no agent here" instead of fake output.
+
+**See what's talking, even over encryption.**
+Devices you mark as *watched* are relayed untouched while NetDash reads the
+cleartext hostname off the wire (DNS queries, TLS SNI, HTTP Host). Fully
+encrypted connections still get fingerprinted by their TLS handshake
+(`ja3`/`ja4`), which can identify the exact app behind the tunnel — without
+breaking the encryption.
+
+**Scan ports and spoof DNS.**
+A half-open SYN sweep (crafted raw packets, no connection ever completes) with
+parallel banner grabs for HTTP, TLS, SSH, and more. DNS spoofing rules map a
+domain to an IP you control and answer matching queries from intercepted
+devices with a forged record.
+
+**Stay alive through network changes.**
+NetDash re-reads your default route every 20 seconds. Move to a new Wi-Fi and
+it re-adopts the new gateway on its own, raises an alert, and rebinds its
+bridge (repairing old state first). If the ARP bridge dies — Wi-Fi bounce,
+cable pull, suspend — a supervisor notices within 20 seconds and reopens it, so
+your limits and intercepts survive a link drop instead of silently dying until
+you restart the daemon.
 
 ## Quick start
 
 ```sh
 cd app
-./build.sh          # builds web UI, embeds it, cross-compiles
-./bin/netdash-linux  # or bin/netdash-windows.exe
+./build.sh            # builds the web UI, embeds it, cross-compiles
+./bin/netdash-linux   # or bin/netdash-windows.exe
 ```
 
 Open http://127.0.0.1:7420
 
 Flags:
 
-| Flag       | Default                   | Description                        |
-|------------|---------------------------|------------------------------------|
-| `-addr`    | `127.0.0.1:7420`          | listen address                     |
-| `-data`    | platform user data dir    | SQLite + state directory           |
-| `-version` | —                         | print version and exit             |
+| Flag       | Default            | Description                 |
+|------------|--------------------|-----------------------------|
+| `-addr`    | `127.0.0.1:7420`   | listen address              |
+| `-data`    | platform data dir  | SQLite + state directory    |
+| `-version` | —                  | print version and exit      |
 
-Data directory: `$XDG_DATA_HOME/netdash` or `~/.local/share/netdash` on Linux,
-`%APPDATA%\netdash` on Windows. Override with `NETDASH_DATA` or `-data`.
+Your data lives in `$XDG_DATA_HOME/netdash` (usually `~/.local/share/netdash`)
+on Linux, or `%APPDATA%\netdash` on Windows. Override with `NETDASH_DATA` or
+`-data`.
 
-## Run as a service (on/off)
+## Run it as a service
 
-One-time install (from the project root):
+One-time setup (from the project root):
 
 ```sh
 mkdir -p ~/.config/systemd/user
 cp netdash.service ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now netdash     # start now + at login
-sudo loginctl enable-linger maxim         # keep it running after logout (boot autostart)
+systemctl --user enable --now netdash   # start now + at every login
+sudo loginctl enable-linger $USER       # keep running after logout (boot autostart)
 ```
 
-Everyday on/off:
+Day to day:
 
-| Action        | Command                                    |
-|---------------|--------------------------------------------|
-| Stop          | `systemctl --user stop netdash`            |
-| Start         | `systemctl --user start netdash`           |
-| Restart       | `systemctl --user restart netdash`         |
-| Auto-start    | `systemctl --user enable netdash`          |
-| No autostart  | `systemctl --user disable netdash`         |
-| Logs          | `journalctl --user -u netdash -f`          |
+| Action       | Command                                 |
+|--------------|-----------------------------------------|
+| Stop         | `systemctl --user stop netdash`         |
+| Start        | `systemctl --user start netdash`        |
+| Restart      | `systemctl --user restart netdash`      |
+| Auto-start   | `systemctl --user enable netdash`       |
+| No autostart | `systemctl --user disable netdash`      |
+| Logs         | `journalctl --user -u netdash -f`       |
 
-`./deploy.sh` detects the service and restarts it after each build;
-without the service it falls back to `pkill` + manual start.
-Without systemd: `./run/netdash -addr 127.0.0.1:7420 -data ./data &`
-(stop with `pkill -x netdash`).
+`./deploy.sh` notices the service and restarts it after each build; without the
+service it falls back to `pkill` + a manual start. No systemd at all? Run
+`./run/netdash -addr 127.0.0.1:7420 -data ./data &` and stop it with
+`pkill -x netdash`.
 
 ## Development
 
 ```sh
 cd app
-export PATH=$HOME/.local/bin:$PATH
 go vet ./... && go test ./...     # backend
-cd web && npm ci && npm run dev   # frontend with HMR (proxy -> :7420)
+cd web && npm ci && npm run dev   # frontend with hot reload (proxies to :7420)
 cd .. && go run ./cmd/netdash     # backend with embedded UI (rebuild to re-embed)
 ```
 
-`go test ./...` covers schedule parsing/enforcement windows, kind inference,
-ARP frame crafting/reconciliation and the mDNS DNS parser, plus the intel
-TLS parsers (official JA3/JA4 reference vectors), the port scanner
-(loopback open/closed/banner classification) and diagnostics result
-parsing (TTL-walk, DNS, negative paths).
+The Go tests cover schedule windows, device-kind inference, ARP frame
+crafting, the mDNS parser, the TLS `ja3`/`ja4` parsers (checked against the
+official reference vectors), the port scanner, and the diagnostics output
+parsers.
 
 ## API
 
-| Method | Path                         | Purpose                              |
-|--------|------------------------------|--------------------------------------|
-| GET    | `/api/status`                | gateway/WAN latency, totals, `path`/`metering`/`firewall` capability |
-| GET    | `/api/devices`               | device list                          |
-| POST   | `/api/devices/{id}`          | patch: `blocked`, `name`, `priority`, `reserved`, `schedule`, `kind`, `speedDown`, `speedUp` (kbit/s, 0 = unlimited), `watched` (intercept) |
-| GET    | `/api/devices/{id}/intel`    | findings (`dns`/`sni`/`http`/`ja3`/`ja4`), newest first |
-| GET/POST | `/api/spoof-rules`         | list / upsert `{domain, ip}` DNS spoof rules |
-| DELETE | `/api/spoof-rules/{id}`      | remove a rule                         |
-| DELETE | `/api/devices/{id}`          | forget device (suppresses rediscovery 10 min) |
-| POST   | `/api/devices/{id}/ping`     | 4 ICMP probes, returns loss/rtt stats |
-| POST   | `/api/devices/{id}/traceroute` | TTL-walk traceroute (real ping probes), hops + RTTs |
-| POST   | `/api/devices/{id}/dnslookup` | PTR + forward A/AAAA (mDNS fallback), real timings |
-| POST   | `/api/devices/{id}/renew-dhcp` | self only: cycle link, re-acquire DHCP lease |
-| POST   | `/api/devices/{id}/restart-radio` | self only: Wi-Fi radio off/on + rejoin wait |
-| POST   | `/api/devices/{id}/scan`     | port scan: `{"ports":[...]}` (empty → curated top list), open ports + banners |
-| GET    | `/api/devices/{id}/scan`     | device's last stored scan (`{"scan": null}` if never run) |
-| GET    | `/api/alerts`                | alert feed                           |
-| POST   | `/api/alerts/{id}/ack`       | acknowledge                          |
-| GET/PUT| `/api/settings`              | gateway/WAN IPs, SSIDs, SNMP         |
-| POST   | `/api/settings/detect`      | detect network now: auto-apply SSIDs/egress, return full detection |
-| GET    | `/api/history`               | time series for charts               |
-| GET    | `/api/stream`                | SSE: `hello` + `tick` snapshots      |
+| Method   | Path                            | Purpose                              |
+|----------|---------------------------------|--------------------------------------|
+| GET      | `/api/status`                   | gateway/WAN latency, totals, and the `path`/`metering`/`firewall` capability flags |
+| GET      | `/api/devices`                  | device list                          |
+| POST     | `/api/devices/{id}`             | patch: `blocked`, `name`, `priority`, `reserved`, `schedule`, `kind`, `speedDown`, `speedUp` (kbit/s, 0 = unlimited), `watched` |
+| GET      | `/api/devices/{id}/intel`       | findings (`dns`/`sni`/`http`/`ja3`/`ja4`), newest first |
+| GET/POST | `/api/spoof-rules`              | list / upsert `{domain, ip}` DNS spoof rules |
+| DELETE   | `/api/spoof-rules/{id}`         | remove a rule                        |
+| DELETE   | `/api/devices/{id}`             | forget a device (suppresses rediscovery for 10 min) |
+| POST     | `/api/devices/{id}/ping`        | 4 ICMP probes, returns loss/rtt      |
+| POST     | `/api/devices/{id}/traceroute`  | TTL-walk traceroute (real ping probes) |
+| POST     | `/api/devices/{id}/dnslookup`   | PTR + forward A/AAAA (mDNS fallback) |
+| POST     | `/api/devices/{id}/renew-dhcp`  | self only: cycle link, re-acquire DHCP lease |
+| POST     | `/api/devices/{id}/restart-radio` | self only: Wi-Fi radio off/on + rejoin |
+| POST     | `/api/devices/{id}/scan`        | port scan: `{"ports":[...]}` (empty → curated top list) |
+| GET      | `/api/devices/{id}/scan`        | the device's last stored scan        |
+| GET      | `/api/alerts`                   | alert feed                           |
+| POST     | `/api/alerts/{id}/ack`          | acknowledge                           |
+| GET/PUT  | `/api/settings`                 | gateway/WAN IPs, SSIDs, SNMP         |
+| POST     | `/api/settings/detect`          | detect the network now: auto-apply SSIDs/egress and return the full detection |
+| GET      | `/api/history`                  | time series for charts               |
+| GET      | `/api/stream`                   | SSE: `hello` + `tick` snapshots      |
 
-`schedule` uses `HH:MM-HH:MM` (en dash accepted); internet is allowed only
-inside the window. Empty schedules (the default) allow always (fail-open).
-`kind` is a device-type id, or `""` to return to auto-inference; invalid ids
-get 400. `speedDown`/`speedUp` are kbit/s caps (0 clears; range 0–10000000)
-and need the ARP bridge — nftables-gateway mode rejects them with a reason.
-`watched: true` starts intercept mode (self/gateway rejected with 400); it also
-needs the ARP bridge and coexists with speed limits.
-`status.path` is `gateway`/`behind`, `status.metering` and `status.speed` are
-`active`/`active (arp bridge)` or `unavailable: <reason>`, and
-`status.blocking` is `active (nftables)`, `active (arp poisoning)` or
-`unavailable: <reason>` — the UI shows those reasons verbatim.
+A few notes on the parameters:
+
+- `schedule` is `HH:MM-HH:MM`; the internet is allowed only inside that window.
+  An empty schedule (the default) allows it always.
+- `kind` is a device-type id, or `""` to go back to auto-inference. Invalid ids
+  get a `400`.
+- `speedDown`/`speedUp` are kbit/s caps and need the ARP bridge — gateway mode
+  rejects them with a reason.
+- `watched: true` starts intercept mode and also needs the ARP bridge.
+- `status.path` is `gateway` or `behind`; `status.metering`, `status.speed`,
+  and `status.blocking` are either `active…` or `unavailable: <reason>` — and
+  the UI shows those reasons exactly as written.
 
 ## Security
 
-NetDash binds `127.0.0.1:7420` by default, so it is reachable only from the
-machine it runs on. If you expose it to the LAN (`-addr 0.0.0.0:7420`), protect
-it with a token:
+By default NetDash listens on `127.0.0.1:7420`, so only the machine it runs on
+can reach it. If you expose it to your LAN (`-addr 0.0.0.0:7420`), put a token
+in front of it:
 
 ```sh
 ./bin/netdash -addr 0.0.0.0:7420 -auth-token "$(openssl rand -hex 24)"
 # or: export NETDASH_AUTH_TOKEN=...
 ```
 
-With a token set, every `/api/*` request must carry it — as
-`Authorization: Bearer <token>`, or as `?token=<token>` (the SSE stream cannot
-send headers). The bundled UI reads the token from the browser, so after setting
-`localStorage.setItem('netdashToken', '<token>')` it attaches it automatically.
-Starting without a token on a non-loopback address prints a loud warning.
+With a token set, every `/api/*` request must include it — either as
+`Authorization: Bearer <token>` or `?token=<token>` (the SSE stream can't send
+headers). The bundled UI picks the token up from the browser, so run
+`localStorage.setItem('netdashToken', '<token>')` once and it attaches it for
+you. Starting without a token on a non-loopback address prints a loud warning.
 
 Every response also carries `X-Content-Type-Options`, `X-Frame-Options: DENY`,
-`Referrer-Policy: no-referrer` and a restrictive `Content-Security-Policy`.
+`Referrer-Policy: no-referrer`, and a restrictive `Content-Security-Policy`.
 
 ## Platform notes
 
-- **Blocking (gateway mode)** needs `nftables` and `CAP_NET_ADMIN`:
-  `sudo setcap cap_net_admin+ep ./bin/netdash-linux` (or run under sudo).
-  NetDash manages an isolated `table inet netdash` — it never touches other
-  firewall tables, and rebuilds its own table on every change.
-- **Blocking (laptop mode)** works behind any router: NetDash ARP-impersonates
-  the gateway toward blocked devices only (everyone else is untouched). Needs
-  Linux + `CAP_NET_RAW`:
-  `sudo setcap cap_net_raw,cap_net_admin+ep <netdash-binary>`.
-  The binary must sit on a filesystem **without `nosuid`** (file capabilities
-  are ignored on e.g. `tmpfs /tmp`), `net.ipv4.ip_forward` must stay `0`, and
-  blocks are fail-open: they last while NetDash runs (caches repair on
-  unblock/shutdown; a crash expires with normal ARP TTLs).
-- **Blocking (Windows)** needs an elevated process (`netsh advfirewall`
-  rules named `netdash-block-<ip>`).
-- **Without capability** the dashboard keeps monitoring; the status shows
-  `blocking: unavailable: <reason>` and block requests fail with that reason.
-- **SNMP** (optional) reads neighbor tables and WAN interface counters from
-  your router: SNMPv2c, `host:port` (default 161), community, WAN ifName.
-- **Windows/WSL ICMP** may require the ICMP allow rule; ping results are real
-  and report loss honestly.
+- **Blocking on the gateway** needs `nftables` and `CAP_NET_ADMIN`:
+  `sudo setcap cap_net_admin+ep ./bin/netdash-linux` (or just run under sudo).
+  NetDash keeps to its own isolated `table inet netdash` and never touches your
+  other firewall tables.
+- **Blocking from a laptop** (behind any router) uses ARP
+  gateway-impersonation toward blocked devices only — everyone else is
+  untouched. Needs Linux and `CAP_NET_RAW` +
+  `CAP_NET_ADMIN`:
+  `sudo setcap cap_net_raw,cap_net_admin+ep <netdash-binary>`. The binary has
+  to sit on a filesystem **without `nosuid`** (file capabilities are ignored on
+  things like `tmpfs /tmp`), `net.ipv4.ip_forward` must stay `0`, and blocks are
+  fail-open: they last while NetDash runs, and normal ARP TTLs clean up the
+  rest after a crash.
+- **Blocking on Windows** needs an elevated process (it creates
+  `netsh advfirewall` rules named `netdash-block-<ip>`).
+- **Without the capability**, monitoring keeps working; the status just shows
+  `blocking: unavailable: <reason>` and block requests fail with that same
+  reason.
+- **SNMP** is optional and reads neighbor tables and WAN interface counters
+  from your router (SNMPv2c, `host:port`, default 161, community string, WAN
+  ifName).
+- **Windows/WSL ICMP** may need the ICMP allow rule enabled; ping results are
+  real and report loss honestly.
 
-## Design
+---
 
-See [`../DESIGN.md`](../DESIGN.md) for the UX spec the UI is built against.
+MIT licensed. Built as a single offline binary — no telemetry, no external
+assets, no dependencies you didn't ask for.
